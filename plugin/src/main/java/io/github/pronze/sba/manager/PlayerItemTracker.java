@@ -8,26 +8,16 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.screamingsandals.bedwars.Main;
 import org.screamingsandals.bedwars.api.game.Game;
-import org.screamingsandals.bedwars.player.PlayerManagerImpl;
+import org.screamingsandals.bedwars.player.BedWarsPlayerManager;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Трекер для отслеживания предметов игроков
- * Сохраняет информацию о купленных предметах и их улучшениях
- */
 public class PlayerItemTracker {
     
     private static PlayerItemTracker instance;
-    
-    // Карта: UUID игрока -> (название предмета -> уровень/количество)
     private final Map<UUID, Map<String, Integer>> playerItems = new ConcurrentHashMap<>();
-    
-    // Карта: UUID игрока -> (тип инструмента -> текущий уровень)
     private final Map<UUID, Map<String, String>> playerToolLevels = new ConcurrentHashMap<>();
-    
-    // Карта: UUID игрока -> список предметов для очистки при смерти
     private final Map<UUID, List<ItemStack>> deathItems = new ConcurrentHashMap<>();
     
     private PlayerItemTracker() {}
@@ -39,9 +29,6 @@ public class PlayerItemTracker {
         return instance;
     }
     
-    /**
-     * Добавляет предмет в трекер
-     */
     public void trackItem(Player player, String materialName, int amount) {
         UUID uuid = player.getUniqueId();
         Map<String, Integer> items = playerItems.getOrDefault(uuid, new HashMap<>());
@@ -52,9 +39,6 @@ public class PlayerItemTracker {
         playerItems.put(uuid, items);
     }
     
-    /**
-     * Удаляет предмет из трекера
-     */
     public void untrackItem(Player player, String materialName, int amount) {
         UUID uuid = player.getUniqueId();
         Map<String, Integer> items = playerItems.get(uuid);
@@ -77,9 +61,6 @@ public class PlayerItemTracker {
         }
     }
     
-    /**
-     * Получает количество предметов у игрока
-     */
     public int getItemCount(Player player, String materialName) {
         UUID uuid = player.getUniqueId();
         Map<String, Integer> items = playerItems.get(uuid);
@@ -90,9 +71,6 @@ public class PlayerItemTracker {
         return 0;
     }
     
-    /**
-     * Устанавливает уровень инструмента
-     */
     public void setToolLevel(Player player, String toolType, String level) {
         UUID uuid = player.getUniqueId();
         Map<String, String> tools = playerToolLevels.getOrDefault(uuid, new HashMap<>());
@@ -100,9 +78,6 @@ public class PlayerItemTracker {
         playerToolLevels.put(uuid, tools);
     }
     
-    /**
-     * Получает уровень инструмента
-     */
     public String getToolLevel(Player player, String toolType) {
         UUID uuid = player.getUniqueId();
         Map<String, String> tools = playerToolLevels.get(uuid);
@@ -113,16 +88,10 @@ public class PlayerItemTracker {
         return null;
     }
     
-    /**
-     * Проверяет, есть ли у игрока этот предмет
-     */
     public boolean hasItem(Player player, String materialName) {
         return getItemCount(player, materialName) > 0 || hasItemInInventory(player, materialName);
     }
     
-    /**
-     * Проверяет наличие предмета в инвентаре
-     */
     private boolean hasItemInInventory(Player player, String materialName) {
         PlayerInventory inv = player.getInventory();
         
@@ -141,30 +110,18 @@ public class PlayerItemTracker {
         return false;
     }
     
-    /**
-     * Сохраняет предметы, которые нужно удалить при смерти
-     */
     public void trackDeathItems(Player player, List<ItemStack> items) {
         deathItems.put(player.getUniqueId(), new ArrayList<>(items));
     }
     
-    /**
-     * Получает предметы для удаления при смерти
-     */
     public List<ItemStack> getDeathItems(Player player) {
         return deathItems.getOrDefault(player.getUniqueId(), new ArrayList<>());
     }
     
-    /**
-     * Очищает данные игрока при смерти
-     */
     public void clearDeathItems(Player player) {
         deathItems.remove(player.getUniqueId());
     }
     
-    /**
-     * Сбрасывает все данные игрока
-     */
     public void resetPlayer(Player player) {
         UUID uuid = player.getUniqueId();
         playerItems.remove(uuid);
@@ -172,18 +129,12 @@ public class PlayerItemTracker {
         deathItems.remove(uuid);
     }
     
-    /**
-     * Очищает данные игрока при выходе
-     */
     public void clearPlayer(UUID uuid) {
         playerItems.remove(uuid);
         playerToolLevels.remove(uuid);
         deathItems.remove(uuid);
     }
     
-    /**
-     * Получает статистику по предметам для отладки
-     */
     public Map<String, Object> getPlayerStats(Player player) {
         UUID uuid = player.getUniqueId();
         Map<String, Object> stats = new HashMap<>();
