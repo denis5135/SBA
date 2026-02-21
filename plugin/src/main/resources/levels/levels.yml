@@ -1,0 +1,29 @@
+# Система уровней для SBA
+leveling:
+  enabled: true
+  formula:
+    type: "LINEAR"
+    base: 1000
+    multiplier: 500
+
+prefixes:
+  "1-9": "&7[✩]"
+  "10-19": "&e[★]"
+  "20-29": "&b[✧]"
+  "30-39": "&d[✦]"
+  "40-49": "&6[✪]"
+  "50-59": "&c[✫]"
+  "60-69": "&a[✬]"
+  "70-79": "&9[✭]"
+  "80-89": "&5[✮]"
+  "90-100": "&4[✯]"
+
+rewards:
+  "5":
+    commands:
+      - "eco give {player} 1000"
+    broadcast: "&e{player} &aдостиг 5 уровня!"
+  "10":
+    commands:
+      - "eco give {player} 5000"
+    broadcast: "&e{player} &aдостиг 10 уровня!"
