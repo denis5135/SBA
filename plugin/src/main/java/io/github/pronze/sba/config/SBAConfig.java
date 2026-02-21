@@ -122,10 +122,10 @@ public class SBAConfig implements IConfigurator {
                     levelsNode = levelsLoader.load();
                 } catch (ConfigurateException e) {
                     e.printStackTrace();
-                    levelsNode = ConfigurationNode.factory().createNode();
+                    levelsNode = ConfigurationNode.empty();
                 }
             } else {
-                levelsNode = ConfigurationNode.factory().createNode();
+                levelsNode = ConfigurationNode.empty();
                 Logger.warn("levels.yml not found, using default values");
             }
 
@@ -140,10 +140,10 @@ public class SBAConfig implements IConfigurator {
                     itemLimitsNode = limitsLoader.load();
                 } catch (ConfigurateException e) {
                     e.printStackTrace();
-                    itemLimitsNode = ConfigurationNode.factory().createNode();
+                    itemLimitsNode = ConfigurationNode.empty();
                 }
             } else {
-                itemLimitsNode = ConfigurationNode.factory().createNode();
+                itemLimitsNode = ConfigurationNode.empty();
                 Logger.warn("item-limits.yml not found, using default values");
             }
 
