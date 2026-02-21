@@ -5,8 +5,8 @@ import io.github.pronze.sba.config.SBAConfig;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import org.screamingsandals.bedwars.api.game.Game;
-import org.screamingsandals.bedwars.player.BedWarsPlayerManager;
+import org.screamingsandals.bedwars.Main;
+import org.screamingsandals.bedwars.game.Game;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -41,8 +41,10 @@ public class ItemLimitManager {
             return false;
         }
         
-        if (!BedWarsPlayerManager.isPlayerInGame(player.getUniqueId())) {
-            return true;
+        // Проверка нахождения в игре через Main
+        Game game = (Game) Main.getInstance().getGameOfPlayer(player);
+        if (game == null) {
+            return true; // не в игре
         }
         
         int currentCount = getPlayerItemCount(player, materialName);
