@@ -8,6 +8,7 @@ import io.github.pronze.sba.game.StoreType;
 import io.github.pronze.sba.game.tasks.CustomTrap;
 import io.github.pronze.sba.game.tasks.CustomTrapTask;
 import io.github.pronze.sba.lib.lang.LanguageService;
+import io.github.pronze.sba.manager.ItemLimitManager;
 import io.github.pronze.sba.utils.Logger;
 import io.github.pronze.sba.utils.SBAUtil;
 import io.github.pronze.sba.utils.ShopUtil;
@@ -136,6 +137,26 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
     public Map.Entry<Boolean, Boolean> handlePurchase(Player player, AtomicReference<ItemStack> newItem,
             AtomicReference<org.screamingsandals.lib.item.ItemStack> materialItem, PlayerItemInfo itemInfo,
             ItemSpawnerType type, AtomicReference<String[]> messageOnFail) {
+        
+        // ===== ПРОВЕРКА ЛИМИТОВ ПЕРЕД ПОКУПКОЙ =====
+        if (SBAConfig.getInstance().isItemLimitsEnabled()) {
+            String materialName = newItem.get().getType().name();
+            int limit = SBAConfig.getInstance().getItemLimit(materialName);
+            
+            if (limit != -1) { // -1 = безлимит
+                int currentCount = ItemLimitManager.getInstance().getPlayerItemCount(player, materialName);
+                if (currentCount >= limit) {
+                    // Лимит исчерпан
+                    LanguageService
+                            .getInstance()
+                            .get(MessageKeys.SHOP_BUY_FAILED)
+                            .replace("%material%", type.getItemName())
+                            .send(Players.wrapPlayer(player));
+                    return Map.entry(false, false);
+                }
+            }
+        }
+        
         boolean shouldSellStack = true;
         final var game = Main.getInstance().getGameOfPlayer(player);
         final var gameStorage = ArenaManager
@@ -145,6 +166,7 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 .getStorage();
         final var team = game.getTeamOfPlayer(player);
         final var wrappedPlayer = Players.wrapPlayer(player);
+        
         if (itemInfo.getProperties().size() == 0) {
             final var typeName = newItem.get().getType().name();
 
@@ -170,8 +192,15 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                     return Map.entry(ShopUtil.buyArmor(player, newItem.get().getType(), gameStorage, game), false);
             }
 
+            // ===== ОТСЛЕЖИВАНИЕ УСПЕШНОЙ ПОКУПКИ =====
+            if (shouldSellStack && SBAConfig.getInstance().isItemLimitsEnabled()) {
+                String materialName = newItem.get().getType().name();
+                ItemLimitManager.getInstance().addPurchase(player, materialName);
+            }
+            
             return Map.entry(true, true);
         }
+        
         for (var property : itemInfo.getProperties()) {
             if (property.hasName()) {
                 final var propertyName = property.getPropertyName().toLowerCase();
@@ -700,6 +729,12 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
             } else {
 
             }
+        }
+
+        // ===== ОТСЛЕЖИВАНИЕ УСПЕШНОЙ ПОКУПКИ =====
+        if (shouldSellStack && SBAConfig.getInstance().isItemLimitsEnabled()) {
+            String materialName = newItem.get().getType().name();
+            ItemLimitManager.getInstance().addPurchase(player, materialName);
         }
 
         return Map.entry(shouldSellStack, false);
