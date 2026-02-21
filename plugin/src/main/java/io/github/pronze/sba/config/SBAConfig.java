@@ -957,10 +957,14 @@ public class SBAConfig implements IConfigurator {
 
     public List<String> getLevelRewards(int level) {
         if (levelsNode == null) return new ArrayList<>();
-        return levelsNode.node("rewards", String.valueOf(level), "commands")
-            .getList(String.class, new ArrayList<>());
-    }
-
+        try {
+            return levelsNode.node("rewards", String.valueOf(level), "commands")
+                .getList(String.class, new ArrayList<>());
+        } catch (SerializationException e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+     }
     public String getLevelRewardBroadcast(int level) {
         if (levelsNode == null) return null;
         return levelsNode.node("rewards", String.valueOf(level), "broadcast").getString();
