@@ -1,0 +1,78 @@
+name: Pre-Builds dev versions
+on:
+  push:
+    branches: [ dev ]
+jobs:
+  build:
+    if: contains(github.event.head_commit.message, '[fj]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+      - name: Set up JDK 21 temurin
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Read value from Properties-file
+        id: read_property
+        uses: https://git.moyskleytech.com/Reedyuk/read-properties@v1.0.4
+        with:
+          path: './gradle.properties'
+          property: 'SBA_VERSION'
+      - name: Read value from Properties-file
+        id: read_property_min_mc_version
+        uses: https://git.moyskleytech.com/Reedyuk/read-properties@v1.0.4
+        with:
+          path: './gradle.properties'
+          property: 'MIN_MC_VERSION'
+      - name: Read value from Properties-file
+        id: read_property_max_mc_version
+        uses: https://git.moyskleytech.com/Reedyuk/read-properties@v1.0.4
+        with:
+          path: './gradle.properties'
+          property: 'MAX_MC_VERSION'
+      - name: Declare some variables
+        id: vars
+        shell: bash
+        run: |
+            echo "{branch}=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_STATE
+            echo "{sha_short}=$(git rev-parse --short HEAD)" >> $GITHUB_STATE
+      - name: Build with Gradle
+        run: ./gradlew
+        env:
+          OPTIMIZE_FOR_CI_CD: "1"
+          BUILD_NUMBER: ${{ github.run_id }}
+          GITHUB_ACTIONS_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          GITHUB_COMMIT_MESSAGE: "${{ github.event.head_commit.message }}"
+      - name: Publish release
+        uses: https://git.moyskleytech.com/boiscljo/forgejo-release-action@main
+        with:
+          tag: ${{ steps.read_property.outputs.value }}-dev
+          assets: LICENSE:LICENSE,plugin/build/libs/SBA-${{ steps.read_property.outputs.value }}-all.jar:SBA-${{ steps.read_property.outputs.value }}-dev.jar
+    
+      - name: Publish to Modrinth (Beta)
+        uses: https://github.com/Kira-NT/mc-publish@v3.3
+        if: env.GITEA_ACTIONS == 'true'
+        with:
+          files: "plugin/build/libs/*.jar"
+          version: ${{ steps.read_property.outputs.value}}
+          version-type: beta
+          modrinth-id: lJPKRQLl
+          modrinth-featured: false
+          modrinth-unfeature-mode: any
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          fail-mode: warn
+          java: |
+            11
+            17
+            21
+          loaders: |
+            paper
+            purpur
+            spigot
+          game-versions: |
+            >=${{steps.read_property_min_mc_version.outputs.value}} <=${{steps.read_property_max_mc_version.outputs.value}}
