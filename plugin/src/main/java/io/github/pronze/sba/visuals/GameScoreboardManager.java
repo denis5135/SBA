@@ -220,8 +220,7 @@ public class GameScoreboardManager implements io.github.pronze.sba.manager.Score
 
         String formattedTeam = TeamColor
                 .valueOf(team.getColor().name()).chatColor
-                .toString()
-                + team.getName().charAt(0);
+                .toString();
 
         status = status
                 .replace("%bed_status%", getTeamBedStatus(team))
@@ -247,8 +246,7 @@ public class GameScoreboardManager implements io.github.pronze.sba.manager.Score
                             .getString("%color% %team% §c\u2718 %you%");
 
                     final var formattedTeam = TeamColor
-                            .valueOf(team.getColor().name()).chatColor.toString()
-                            + team.getName().charAt(0);
+                            .valueOf(team.getColor().name()).chatColor.toString();
 
                     return destroyed
                             .replace("%color%", formattedTeam)
