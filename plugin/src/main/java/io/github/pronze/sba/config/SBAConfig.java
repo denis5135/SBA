@@ -49,7 +49,9 @@ public class SBAConfig implements IConfigurator {
 
     public JavaPlugin plugin;
     public File dataFolder;
-    public File langFolder, shopFolder, gamesInventoryFolder;
+    public File langFolder, shopFolder, gamesInventoryFolder, levelsFolder, itemLimitsFolder;
+    public ConfigurationNode levelsNode;
+    public ConfigurationNode itemLimitsNode;
 
     private ConfigurationNode configurationNode;
     private YamlConfigurationLoader loader;
@@ -67,7 +69,6 @@ public class SBAConfig implements IConfigurator {
     public void loadDefaults() {
         this.dataFolder = plugin.getDataFolder();
 
-        /* To avoid config confusions */
         deleteFile("config.yml");
         deleteFile("bwaconfig.yml");
 
@@ -75,16 +76,14 @@ public class SBAConfig implements IConfigurator {
             langFolder = new File(dataFolder, "languages");
             gamesInventoryFolder = new File(dataFolder, "games-inventory");
             shopFolder = new File(dataFolder, "shops");
+            levelsFolder = new File(dataFolder, "levels");
+            itemLimitsFolder = new File(dataFolder, "item-limits");
 
-            if (!shopFolder.exists()) {
-                shopFolder.mkdirs();
-            }
-            if (!gamesInventoryFolder.exists()) {
-                gamesInventoryFolder.mkdirs();
-            }
-            if (!langFolder.exists()) {
-                langFolder.mkdirs();
-            }
+            if (!shopFolder.exists()) shopFolder.mkdirs();
+            if (!gamesInventoryFolder.exists()) gamesInventoryFolder.mkdirs();
+            if (!langFolder.exists()) langFolder.mkdirs();
+            if (!levelsFolder.exists()) levelsFolder.mkdirs();
+            if (!itemLimitsFolder.exists()) itemLimitsFolder.mkdirs();
 
             saveFile("languages/language_en.yml");
             saveFile("languages/language_ru.yml");
@@ -95,6 +94,8 @@ public class SBAConfig implements IConfigurator {
             saveFile("games-inventory/squads.yml");
 
             saveFile("shops/moved-to-bedwars.txt");
+            saveFile("levels/levels.yml");
+            saveFile("item-limits/item-limits.yml");
 
             moveFileIfNeeded("shop.yml");
             moveFileIfNeeded("upgradeShop.yml");
@@ -109,6 +110,42 @@ public class SBAConfig implements IConfigurator {
                     .build();
 
             configurationNode = loader.load();
+
+            // Загрузка levels.yml
+            File levelsFile = new File(levelsFolder, "levels.yml");
+            if (levelsFile.exists()) {
+                try {
+                    YamlConfigurationLoader levelsLoader = YamlConfigurationLoader.builder()
+                        .path(levelsFile.toPath())
+                        .nodeStyle(NodeStyle.BLOCK)
+                        .build();
+                    levelsNode = levelsLoader.load();
+                } catch (ConfigurateException e) {
+                    e.printStackTrace();
+                    levelsNode = ConfigurationNode.root();
+                }
+            } else {
+                levelsNode = ConfigurationNode.root();
+                Logger.warn("levels.yml not found, using default values");
+            }
+
+            // Загрузка item-limits.yml
+            File limitsFile = new File(itemLimitsFolder, "item-limits.yml");
+            if (limitsFile.exists()) {
+                try {
+                    YamlConfigurationLoader limitsLoader = YamlConfigurationLoader.builder()
+                        .path(limitsFile.toPath())
+                        .nodeStyle(NodeStyle.BLOCK)
+                        .build();
+                    itemLimitsNode = limitsLoader.load();
+                } catch (ConfigurateException e) {
+                    e.printStackTrace();
+                    itemLimitsNode = ConfigurationNode.root();
+                }
+            } else {
+                itemLimitsNode = ConfigurationNode.root();
+                Logger.warn("item-limits.yml not found, using default values");
+            }
 
             generator = new ConfigGenerator(loader, configurationNode);
             generator.start()
@@ -133,8 +170,7 @@ public class SBAConfig implements IConfigurator {
                     .key("running-generator-drops").defValue(List.of("DIAMOND", "IRON_INGOT", "EMERALD", "GOLD_INGOT"))
                     .key("block-item-drops").defValue(true)
                     .key("allowed-item-drops")
-                    .defValue(List.of("DIAMOND", "IRON_INGOT", "EMERALD", "GOLD_INGOT", "GOLDEN_APPLE", "OBSIDIAN",
-                            "TNT"))
+                    .defValue(List.of("DIAMOND", "IRON_INGOT", "EMERALD", "GOLD_INGOT", "GOLDEN_APPLE", "OBSIDIAN", "TNT"))
                     .key("give-killer-resources").defValue(true)
                     .key("replace-sword-on-upgrade").defValue(true)
                     .key("block-players-putting-certain-items-onto-chest").defValue(true)
@@ -150,7 +186,7 @@ public class SBAConfig implements IConfigurator {
                     .back();
             generator.saveIfModified();
 
-            if (!configurationNode.hasChild("upgrades"))
+            if (!configurationNode.hasChild("upgrades")) {
                 generator.start().section("upgrades").section("limit").key("Iron").defValue(48)
                         .key("Gold").defValue(8)
                         .key("Diamond-I").defValue(4)
@@ -170,13 +206,13 @@ public class SBAConfig implements IConfigurator {
                         .key("Diamond-IV").defValue(1500)
                         .key("Emerald-IV").defValue(1800)
                         .back();
-            generator.saveIfModified();
+                generator.saveIfModified();
+            }
 
             Material repeater = Material.matchMaterial("REPEATER");
-            if (repeater == null)
-                repeater = Material.matchMaterial("REDSTONE_WIRE");
-            if (repeater == null)
-                repeater = Material.matchMaterial("CAKE");
+            if (repeater == null) repeater = Material.matchMaterial("REDSTONE_WIRE");
+            if (repeater == null) repeater = Material.matchMaterial("CAKE");
+            
             generator.start()
                     .section("upgrades")
                     .key("timer-upgrades-enabled").defValue(true)
@@ -255,11 +291,11 @@ public class SBAConfig implements IConfigurator {
                     .key("invite-expiration-time").defValue(60)
                     .back()
                     .section("team-status")
-                    .key("target-destroyed").defValue("§c\u2717")
-                    .key("target-exists").defValue("§a\u2713")
-                    .key("alive").defValue("%color% %team% §a\u2713 §8%you%")
+                    .key("target-destroyed").defValue("§c✗")
+                    .key("target-exists").defValue("§a✓")
+                    .key("alive").defValue("%color% %team% §a✓ §8%you%")
                     .key("destroyed").defValue("%color% %team% §a§f%players%§8 %you%")
-                    .key("eliminated").defValue("%color% %team% §c\u2718 %you%")
+                    .key("eliminated").defValue("%color% %team% §c✘ %you%")
                     .back()
                     .section("chat-format")
                     .section("game-chat")
@@ -290,15 +326,35 @@ public class SBAConfig implements IConfigurator {
                     .key("show-page-numbers").defValue(false)
                     .key("trap-title").defValue(true)
                     .key("trap-message").defValue(true)
+                    .key("limit-items-enabled").defValue(true)
+                    .key("tool-upgrade-enabled").defValue(true)
+                    .section("limits")
+                    .key("default").defValue(-1)
+                    .back()
+                    .section("tool-upgrade-prices")
+                    .section("pickaxe")
+                        .key("wood").defValue(4)
+                        .key("stone").defValue(8)
+                        .key("iron").defValue(16)
+                        .key("diamond").defValue(32)
+                    .back()
+                    .section("axe")
+                        .key("wood").defValue(4)
+                        .key("stone").defValue(8)
+                        .key("iron").defValue(16)
+                        .key("diamond").defValue(32)
+                    .back()
+                    .section("shears")
+                        .key("normal").defValue(8)
+                        .key("efficiency2").defValue(12)
+                        .key("efficiency3").defValue(16)
+                    .back()
+                    .back()
                     .section("normal-shop")
                     .key("entity-name").defValue(List.of("§bITEM SHOP", "§e§lRIGHT CLICK"))
                     .section("skin")
-                    .key("value")
-                    .defValue(
-                            "ewogICJ0aW1lc3RhbXAiIDogMTYyNjA5MTkyNjQ3NCwKICAicHJvZmlsZUlkIiA6ICJiNjM2OWQ0MzMwNTU0NGIzOWE5OTBhODYyNWY5MmEwNSIsCiAgInByb2ZpbGVOYW1lIiA6ICJCb2JpbmhvXyIsCiAgInNpZ25hdHVyZVJlcXVpcmVkIiA6IHRydWUsCiAgInRleHR1cmVzIiA6IHsKICAgICJTS0lOIiA6IHsKICAgICAgInVybCIgOiAiaHR0cDovL3RleHR1cmVzLm1pbmVjcmFmdC5uZXQvdGV4dHVyZS9iZmRmOTBkZWI0YmYzNmM3Y2I4Y2Y2Zjg0NWQ0OTYzZWVhODkyNzRlMDBkNmFjMzQxNjJiYTc3MTE1ZjMyMWZhIgogICAgfQogIH0KfQ==")
-                    .key("signature")
-                    .defValue(
-                            "dRVORv3TXsP80Xfzy2/CYAHN92iF+4UYe8Un7jSEvCc9fwz9z39lB1ooO62hdArqZuNU2b7OKUZd8LYbctj8hUnaKdQ4kxbO1xQENRATNGsk1PWrVLgMikg2Vx4+2DCakE18f9UAVGHqGFVInI3dCCG7QmWqNI+l4g+GjxNzYVDWlW/PsB7CuQsOhJGY1hq2B1JRQ4mhZl0Tks/gU+qdw+ClOShB50KB2Q60d+fd04xYYCAJHk/a9c45EBBU8rHix8M2GV6hYXQZcdXZMB/KZBHAQfCrnlMhlTOzKfUYI5sDzSH6zBIWtE36zVeuYuM4Rppt0doT9qNJXJIYJ4UlZ11l8F9/ShQST+h138yJMgxRmIi3KAGhEJ8aVKkeeXMARbF9uFZbxHoZd66lhA5BWYsrFhyxKrPVO2AsfsfFQCY/DLurEdVVTWcN5K4Frh2Pt97gDJYBYXOuClaS367q57X76yuFqOFe6AvRI1Hvr22k8WvqpSqXzEXlfLUMwz9iKgbptS/Y9X78dseBwS7OdmUTFl1VgDZerQH1RDUrDTxr/Hiv0KE1czhbOQInRTaAT65dPB9RHZ3OnlgHcA7+7joRuPHihPuLH45NKHAxLn10CiolrtgxmGejkWqtNVKNlZNiAl49u4CRCqC13P/crCi9vlonjPg8mkLivsuyA8g=")
+                    .key("value").defValue("ewogICJ0aW1lc3RhbXAiIDogMTYyNjA5MTkyNjQ3NCwKICAicHJvZmlsZUlkIiA6ICJiNjM2OWQ0MzMwNTU0NGIzOWE5OTBhODYyNWY5MmEwNSIsCiAgInByb2ZpbGVOYW1lIiA6ICJCb2JpbmhvXyIsCiAgInNpZ25hdHVyZVJlcXVpcmVkIiA6IHRydWUsCiAgInRleHR1cmVzIiA6IHsKICAgICJTS0lOIiA6IHsKICAgICAgInVybCIgOiAiaHR0cDovL3RleHR1cmVzLm1pbmVjcmFmdC5uZXQvdGV4dHVyZS9iZmRmOTBkZWI0YmYzNmM3Y2I4Y2Y2Zjg0NWQ0OTYzZWVhODkyNzRlMDBkNmFjMzQxNjJiYTc3MTE1ZjMyMWZhIgogICAgfQogIH0KfQ==")
+                    .key("signature").defValue("dRVORv3TXsP80Xfzy2/CYAHN92iF+4UYe8Un7jSEvCc9fwz9z39lB1ooO62hdArqZuNU2b7OKUZd8LYbctj8hUnaKdQ4kxbO1xQENRATNGsk1PWrVLgMikg2Vx4+2DCakE18f9UAVGHqGFVInI3dCCG7QmWqNI+l4g+GjxNzYVDWlW/PsB7CuQsOhJGY1hq2B1JRQ4mhZl0Tks/gU+qdw+ClOShB50KB2Q60d+fd04xYYCAJHk/a9c45EBBU8rHix8M2GV6hYXQZcdXZMB/KZBHAQfCrnlMhlTOzKfUYI5sDzSH6zBIWtE36zVeuYuM4Rppt0doT9qNJXJIYJ4UlZ11l8F9/ShQST+h138yJMgxRmIi3KAGhEJ8aVKkeeXMARbF9uFZbxHoZd66lhA5BWYsrFhyxKrPVO2AsfsfFQCY/DLurEdVVTWcN5K4Frh2Pt97gDJYBYXOuClaS367q57X76yuFqOFe6AvRI1Hvr22k8WvqpSqXzEXlfLUMwz9iKgbptS/Y9X78dseBwS7OdmUTFl1VgDZerQH1RDUrDTxr/Hiv0KE1czhbOQInRTaAT65dPB9RHZ3OnlgHcA7+7joRuPHihPuLH45NKHAxLn10CiolrtgxmGejkWqtNVKNlZNiAl49u4CRCqC13P/crCi9vlonjPg8mkLivsuyA8g=")
                     .back()
                     .key("name").defValue("[SBA] Item Shop")
                     .back()
@@ -306,12 +362,8 @@ public class SBAConfig implements IConfigurator {
                     .key("name").defValue("[SBA] Upgrade Shop")
                     .key("entity-name").defValue(List.of("§bTEAM", "§bUPGRADES", "§e§lRIGHT CLICK"))
                     .section("skin")
-                    .key("value")
-                    .defValue(
-                            "ewogICJ0aW1lc3RhbXAiIDogMTYyNjA4ODMxNjI3OCwKICAicHJvZmlsZUlkIiA6ICIxYWZhZjc2NWI1ZGY0NjA3YmY3ZjY1ZGYzYWIwODhhOCIsCiAgInByb2ZpbGVOYW1lIiA6ICJMb3lfQmxvb2RBbmdlbCIsCiAgInNpZ25hdHVyZVJlcXVpcmVkIiA6IHRydWUsCiAgInRleHR1cmVzIiA6IHsKICAgICJTS0lOIiA6IHsKICAgICAgInVybCIgOiAiaHR0cDovL3RleHR1cmVzLm1pbmVjcmFmdC5uZXQvdGV4dHVyZS85ZjM0N2NiYjg3ZmVjMDA2MDc3ZDI2MTFjZjk4MTM4NGMwOWNlM2FjNDQ1M2FlY2M4MjMzYWMwODk3YjA3ZDYwIgogICAgfQogIH0KfQ==")
-                    .key("signature")
-                    .defValue(
-                            "oqCVAspoQ/uCoZX/2XTgoYjAGBVJSXLi+/QPHKPaGqP9zEXHE7k5TH5Z7K7x5D8ECCtZq8jW6GCzIzigvTKp2jRXoEnjnOmzc82P6nSV39NKueB6XVi12fluewaLNlzhJUwn1+7NOYlwKH3qN3/Rd8bE3lNv9bkrWN67zjnYDA7o4vxfkzgV9Hd1CEV9oVRsSne3rm7kYN1iRoMYArL4+EYTYUxd6HMUZ33b5yecQz+UctiGcRUXzPDU/RANxYlBkH6WIe6C8QH84MtjTD20X/2qmlhYeTA98Jf5eiPLfTd+30q603moUEf5VyEuaK3qxMektnaaIO0Wdx7fGYQelbDkejxqL7c//gupksKMqlFqBtLYTRcAXCS5hFbl2tnN80O4Kq0v4E1HOmBZYKZf/yYahNbRZyj0hNaG1dDdM/dqfBmBQWbcSnvb3M9YE9mXAoddryRii6kHVEQWO+C8xHECQK69AN/XhGnr+2X+cDfHHGIrVY10/rVXF2faPTauj/aFOZLp/fhOuLzOSQZYQCIe/jiO5BbEJ6owU5cyL0V/8x4609Pu7REhwiS2wDUrfLl5yyTyw232pVwO545awKV0O0/fnWeeLePuv8qBh/ngNZ52iDeEfpDeBe3DB1FFOSup96/eL/7blzDxKmzIVO29egg8xTVsYwUr23J1y0s=")
+                    .key("value").defValue("ewogICJ0aW1lc3RhbXAiIDogMTYyNjA4ODMxNjI3OCwKICAicHJvZmlsZUlkIiA6ICIxYWZhZjc2NWI1ZGY0NjA3YmY3ZjY1ZGYzYWIwODhhOCIsCiAgInByb2ZpbGVOYW1lIiA6ICJMb3lfQmxvb2RBbmdlbCIsCiAgInNpZ25hdHVyZVJlcXVpcmVkIiA6IHRydWUsCiAgInRleHR1cmVzIiA6IHsKICAgICJTS0lOIiA6IHsKICAgICAgInVybCIgOiAiaHR0cDovL3RleHR1cmVzLm1pbmVjcmFmdC5uZXQvdGV4dHVyZS85ZjM0N2NiYjg3ZmVjMDA2MDc3ZDI2MTFjZjk4MTM4NGMwOWNlM2FjNDQ1M2FlY2M4MjMzYWMwODk3YjA3ZDYwIgogICAgfQogIH0KfQ==")
+                    .key("signature").defValue("oqCVAspoQ/uCoZX/2XTgoYjAGBVJSXLi+/QPHKPaGqP9zEXHE7k5TH5Z7K7x5D8ECCtZq8jW6GCzIzigvTKp2jRXoEnjnOmzc82P6nSV39NKueB6XVi12fluewaLNlzhJUwn1+7NOYlwKH3qN3/Rd8bE3lNv9bkrWN67zjnYDA7o4vxfkzgV9Hd1CEV9oVRsSne3rm7kYN1iRoMYArL4+EYTYUxd6HMUZ33b5yecQz+UctiGcRUXzPDU/RANxYlBkH6WIe6C8QH84MtjTD20X/2qmlhYeTA98Jf5eiPLfTd+30q603moUEf5VyEuaK3qxMektnaaIO0Wdx7fGYQelbDkejxqL7c//gupksKMqlFqBtLYTRcAXCS5hFbl2tnN80O4Kq0v4E1HOmBZYKZf/yYahNbRZyj0hNaG1dDdM/dqfBmBQWbcSnvb3M9YE9mXAoddryRii6kHVEQWO+C8xHECQK69AN/XhGnr+2X+cDfHHGIrVY10/rVXF2faPTauj/aFOZLp/fhOuLzOSQZYQCIe/jiO5BbEJ6owU5cyL0V/8x4609Pu7REhwiS2wDUrfLl5yyTyw232pVwO545awKV0O0/fnWeeLePuv8qBh/ngNZ52iDeEfpDeBe3DB1FFOSup96/eL/7blzDxKmzIVO29egg8xTVsYwUr23J1y0s=")
                     .back()
                     .back()
                     .back()
@@ -371,6 +423,7 @@ public class SBAConfig implements IConfigurator {
         }
     }
 
+    // ========== СУЩЕСТВУЮЩИЕ МЕТОДЫ ==========
     public boolean trapTitleEnabled() {
         return getBoolean("shop.trap-title", true);
     }
@@ -384,26 +437,16 @@ public class SBAConfig implements IConfigurator {
     }
 
     public class TeamStatusConfig {
-        /*
-         * .section("team-status")
-         * .key("target-destroyed").defValue("§c\u2717")
-         * .key("target-exists").defValue("§a\u2713")
-         * .key("alive").defValue("%color% %team% §a\u2713 §8%you%")
-         * .key("destroyed").defValue("%color% %team% §a§f%players%§8 %you%")
-         * .key("eliminated").defValue("%color% %team% §c\u2718 %you%")
-         * .back()
-         */
-
         public String targetDestroyed() {
-            return getString("team-status.target-destroyed", "§c\u2717");
+            return getString("team-status.target-destroyed", "§c✗");
         }
 
         public String targetExists() {
-            return getString("team-status.target-exists", "§a\u2713");
+            return getString("team-status.target-exists", "§a✓");
         }
 
         public String alive() {
-            return getString("team-status.alive", "%color% %team% §a\u2713 §8%you%");
+            return getString("team-status.alive", "%color% %team% §a✓ §8%you%");
         }
 
         public String destroyed() {
@@ -411,7 +454,7 @@ public class SBAConfig implements IConfigurator {
         }
 
         public String eliminated() {
-            return getString("team-status.eliminated", "%color% %team% §c\u2718 %you%");
+            return getString("team-status.eliminated", "%color% %team% §c✘ %you%");
         }
     }
 
@@ -440,20 +483,12 @@ public class SBAConfig implements IConfigurator {
         public int expirationTime() {
             return getInt("party.invite-expiration-time", 60);
         }
-        /*
-         * .section("party")
-         * .key("enabled").defValue(true)
-         * .key("leader-autojoin-autoleave").defValue(true)
-         * .key("invite-expiration-time").defValue(60)
-         * .back()
-         */
     }
 
     public SpectatorConfig spectator() {
         return new SpectatorConfig();
     }
 
-    // "fake-spectator"
     public class SpectatorConfig {
         public boolean adventure() {
             return getBoolean("spectator.adventure-mode", false);
@@ -487,7 +522,6 @@ public class SBAConfig implements IConfigurator {
                 compass.setItemMeta(meta);
                 return compass;
             }
-
         }
 
         public TrackerConfig tracker() {
@@ -522,7 +556,6 @@ public class SBAConfig implements IConfigurator {
                 compass.setItemMeta(meta);
                 return compass;
             }
-
         }
 
         public LeaveItem leave() {
@@ -546,12 +579,6 @@ public class SBAConfig implements IConfigurator {
         public boolean compassWhileSpectator() {
             return getBoolean("spectator.compass-spectator", true);
         }
-        /*
-         * .section("compass")
-         * .key("enabled").defValue(true)
-         * .key("name").defValue("Players")
-         * .back()
-         */
     }
 
     public UpgradeConfig upgrades() {
@@ -559,11 +586,6 @@ public class SBAConfig implements IConfigurator {
     }
 
     public class UpgradeConfig {
-        /*
-         * .section("upgrade-item")
-         * .key("leggings").defValue(true)
-         * .key("chestplate").defValue(false)
-         */
         public boolean boots() {
             return getBoolean("upgrade-item.boots", true);
         }
@@ -586,9 +608,7 @@ public class SBAConfig implements IConfigurator {
 
         public class EnchantApplyConfig {
             public List<String> keys() {
-                var keys = AddonAPI
-                        .getInstance()
-                        .getConfigurator().getSubKeys("upgrade-item.enchants");
+                var keys = AddonAPI.getInstance().getConfigurator().getSubKeys("upgrade-item.enchants");
                 return keys;
             }
 
@@ -621,7 +641,6 @@ public class SBAConfig implements IConfigurator {
     private boolean aiDisabled = false;
 
     public class AIConfig {
-
         public boolean enabled() {
             return !aiDisabled && getBoolean("ai.enabled", false);
         }
@@ -642,11 +661,9 @@ public class SBAConfig implements IConfigurator {
 
         public @NotNull String infiniteItem() {
             String defaultMaterial = "STONE";
-            if (Material.getMaterial("OAK_PLANKS") != null)
-                defaultMaterial = "OAK_PLANKS";
-            String returnValue =getString("ai.infinite-material", defaultMaterial);
-            if(Material.getMaterial(returnValue)==null)
-            {
+            if (Material.getMaterial("OAK_PLANKS") != null) defaultMaterial = "OAK_PLANKS";
+            String returnValue = getString("ai.infinite-material", defaultMaterial);
+            if (Material.getMaterial(returnValue) == null) {
                 return defaultMaterial;
             }
             return returnValue;
@@ -655,7 +672,6 @@ public class SBAConfig implements IConfigurator {
         public void disable() {
             aiDisabled = true;
         }
-
     }
 
     public boolean shouldCheckUpdate() {
@@ -673,21 +689,19 @@ public class SBAConfig implements IConfigurator {
     private void moveFileIfNeeded(String path) {
         var path1 = Bukkit.getPluginManager().getPlugin("SBA").getDataFolder().toPath().resolve("shops/" + path);
         var path2 = SBA.getBedwarsPlugin().getDataFolder().toPath().resolve(path);
-        if (path1.toFile().exists())
-            if (!path2.toFile().exists() || path1.toFile().lastModified() > path2.toFile().lastModified())
+        if (path1.toFile().exists()) {
+            if (!path2.toFile().exists() || path1.toFile().lastModified() > path2.toFile().lastModified()) {
                 try {
-                    Files.copy(
-                            path1,
-                            path2,
-                            StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(path1, path2, StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException e) {
                     Logger.error("Could not copy file {} from SBA/shops/{} to Bedwars/{}", path);
                 }
+            }
+        }
     }
 
     public void forceReload() {
-        loader = YamlConfigurationLoader
-                .builder()
+        loader = YamlConfigurationLoader.builder()
                 .path(dataFolder.toPath().resolve("sbaconfig.yml"))
                 .nodeStyle(NodeStyle.BLOCK)
                 .build();
@@ -718,21 +732,19 @@ public class SBAConfig implements IConfigurator {
     }
 
     public void saveShop(String fileName, boolean force) {
-
         var path2 = SBA.getBedwarsPlugin().getDataFolder().toPath().resolve(fileName);
 
-        if (!path2.toFile().exists() || force)
+        if (!path2.toFile().exists() || force) {
             try (var input = SBAConfig.class.getResourceAsStream("/shops/" + fileName)) {
                 System.out.println("Saving shop '" + fileName + "' at '" + path2 + "'");
                 path2.toFile().getParentFile().mkdirs();
                 try (var output = new FileOutputStream(path2.toFile())) {
-                    if (input != null)
-                        input.transferTo(output);
+                    if (input != null) input.transferTo(output);
                 }
             } catch (IOException e) {
                 Logger.error("Could not save store {} due to {}", fileName, e);
             }
-
+        }
     }
 
     @Override
@@ -740,7 +752,6 @@ public class SBAConfig implements IConfigurator {
         try {
             node("version").set(plugin.getDescription().getVersion());
             saveConfig();
-
             SBAUtil.reloadPlugin(Main.getInstance(), null);
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -778,7 +789,8 @@ public class SBAConfig implements IConfigurator {
     @Override
     public List<String> getSubKeys(String string) {
         try {
-            return node((Object[]) string.split("\\.")).childrenMap().keySet().stream().map(o -> o.toString())
+            return node((Object[]) string.split("\\.")).childrenMap().keySet().stream()
+                    .map(Object::toString)
                     .collect(Collectors.toList());
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -797,15 +809,13 @@ public class SBAConfig implements IConfigurator {
 
     @Override
     public Integer getInt(String path, Integer def) {
-
         return node((Object[]) path.split("\\.")).getInt(def);
     }
 
     @Override
     public Byte getByte(String path, Byte def) {
         final var val = node((Object[]) path.split("\\.")).getInt(def);
-        if (val > 127 || val < -128)
-            return def;
+        if (val > 127 || val < -128) return def;
         return (byte) val;
     }
 
@@ -833,8 +843,95 @@ public class SBAConfig implements IConfigurator {
             var obj = node.raw();
             return Objects.requireNonNullElse(ItemStackFactory.build(obj), ItemStackFactory.getAir());
         }
-
         return Objects.requireNonNullElse(ItemStackFactory.build(def), ItemStackFactory.getAir());
     }
 
+    // ========== НОВЫЕ МЕТОДЫ ДЛЯ УРОВНЕЙ ==========
+    
+    public String getLevelPrefix(int level) {
+        if (levelsNode == null) return "&7[Lv." + level + "]";
+        
+        var prefixes = levelsNode.node("prefixes");
+        for (var entry : prefixes.childrenMap().entrySet()) {
+            String range = entry.getKey().toString();
+            String[] parts = range.split("-");
+            int min = Integer.parseInt(parts[0]);
+            int max = Integer.parseInt(parts[1]);
+            
+            if (level >= min && level <= max) {
+                return ChatColor.translateAlternateColorCodes('&', 
+                    entry.getValue().getString("&7[✩]"));
+            }
+        }
+        return "&7[Lv." + level + "]";
+    }
+
+    public int getRequiredXP(int level) {
+        if (levelsNode == null) return 1000 + (level - 1) * 500;
+        
+        var custom = levelsNode.node("leveling", "custom");
+        if (!custom.empty()) {
+            return custom.node(String.valueOf(level)).getInt(0);
+        }
+        
+        String type = levelsNode.node("leveling", "formula", "type").getString("LINEAR");
+        int base = levelsNode.node("leveling", "formula", "base").getInt(1000);
+        int multiplier = levelsNode.node("leveling", "formula", "multiplier").getInt(500);
+        
+        switch (type.toUpperCase()) {
+            case "LINEAR":
+                return base + (level - 1) * multiplier;
+            case "EXPONENTIAL":
+                return (int)(base * Math.pow(multiplier/100.0 + 1, level - 1));
+            default:
+                return base + (level - 1) * multiplier;
+        }
+    }
+
+    public List<String> getLevelRewards(int level) {
+        if (levelsNode == null) return new ArrayList<>();
+        return levelsNode.node("rewards", String.valueOf(level), "commands")
+            .getList(String.class, new ArrayList<>());
+    }
+
+    public String getLevelRewardBroadcast(int level) {
+        if (levelsNode == null) return null;
+        return levelsNode.node("rewards", String.valueOf(level), "broadcast").getString();
+    }
+    
+    // ========== НОВЫЕ МЕТОДЫ ДЛЯ ЛИМИТОВ ПРЕДМЕТОВ ==========
+    
+    public boolean isItemLimitsEnabled() {
+        return getBoolean("shop.limit-items-enabled", true);
+    }
+    
+    public int getItemLimit(String materialName) {
+        if (itemLimitsNode == null) return getDefaultItemLimit();
+        return itemLimitsNode.node("limits", materialName).getInt(getDefaultItemLimit());
+    }
+    
+    public int getDefaultItemLimit() {
+        return getInt("shop.limits.default", -1);
+    }
+    
+    // ========== НОВЫЕ МЕТОДЫ ДЛЯ ПРОКАЧКИ ИНСТРУМЕНТОВ ==========
+    
+    public boolean isToolUpgradeEnabled() {
+        return getBoolean("shop.tool-upgrade-enabled", true);
+    }
+    
+    public int getToolUpgradePrice(String toolType, String level) {
+        return getInt("shop.tool-upgrade-prices." + toolType + "." + level, 4);
+    }
+    
+    public String getNextToolLevel(String currentLevel) {
+        switch (currentLevel) {
+            case "wood": return "stone";
+            case "stone": return "iron";
+            case "iron": return "diamond";
+            case "normal": return "efficiency2";
+            case "efficiency2": return "efficiency3";
+            default: return null;
+        }
+    }
 }
