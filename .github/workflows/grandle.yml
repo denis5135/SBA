@@ -24,8 +24,31 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew build shadowJar
       
-      - name: Upload JAR
+      - name: List all JAR files
+        run: |
+          echo "=== All JAR files found ==="
+          find . -name "*.jar" -type f -ls
+          echo "==========================="
+      
+      - name: Create archive with all JARs
+        run: |
+          mkdir -p artifacts
+          find . -name "*.jar" -type f -not -path "*/build/tmp/*" -exec cp {} artifacts/ \;
+          cd artifacts
+          ls -la
+          
+      - name: Upload all JARs as archive
         uses: actions/upload-artifact@v4
         with:
-          name: SBA-JAR
-          path: plugin/build/libs/*.jar
+          name: SBA-All-JARs
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 90
+          
+      - name: Upload main JAR separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBA-Main-JAR
+          path: plugin/build/libs/SBA-*.jar
+          if-no-files-found: error
+          retention-days: 90
