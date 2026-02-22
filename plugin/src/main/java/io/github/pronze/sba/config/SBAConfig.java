@@ -1,863 +1,970 @@
-package io.github.pronze.sba.inventories;
+package io.github.pronze.sba.config;
 
-import io.github.pronze.sba.MessageKeys;
+import io.github.pronze.sba.AddonAPI;
 import io.github.pronze.sba.SBA;
-import io.github.pronze.sba.config.SBAConfig;
-import io.github.pronze.sba.game.ArenaManager;
-import io.github.pronze.sba.game.StoreType;
-import io.github.pronze.sba.game.tasks.CustomTrap;
-import io.github.pronze.sba.game.tasks.CustomTrapTask;
-import io.github.pronze.sba.lib.lang.LanguageService;
-import io.github.pronze.sba.manager.ItemLimitManager;
-import io.github.pronze.sba.manager.PlayerItemTracker;
+import io.github.pronze.sba.fix.BungeecordNPC;
+import io.github.pronze.sba.utils.FirstStartConfigReplacer;
 import io.github.pronze.sba.utils.Logger;
-import io.github.pronze.sba.utils.SBAUtil;
-import io.github.pronze.sba.utils.ShopUtil;
-import io.github.pronze.sba.wrapper.SBAPlayerWrapper;
-import lombok.SneakyThrows;
+import net.md_5.bungee.api.ChatColor;
 
-import org.bukkit.ChatColor;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.screamingsandals.bedwars.Main;
-import org.screamingsandals.bedwars.api.events.BedwarsOpenShopEvent;
-import org.screamingsandals.bedwars.api.game.ItemSpawner;
-import org.screamingsandals.bedwars.api.game.ItemSpawnerType;
-import org.screamingsandals.bedwars.game.GameStore;
 import org.screamingsandals.lib.item.builder.ItemStackFactory;
-import org.screamingsandals.lib.item.meta.EnchantmentType;
-import org.screamingsandals.lib.player.Players;
 import org.screamingsandals.lib.plugin.ServiceManager;
-import org.screamingsandals.lib.utils.ConfigurateUtils;
-import org.screamingsandals.lib.utils.Controllable;
 import org.screamingsandals.lib.utils.annotations.Service;
-import org.screamingsandals.lib.utils.annotations.ServiceDependencies;
-import org.screamingsandals.simpleinventories.SimpleInventoriesCore;
-import org.screamingsandals.simpleinventories.builder.InventorySetBuilder;
-import org.screamingsandals.simpleinventories.events.ItemRenderEvent;
-import org.screamingsandals.simpleinventories.inventory.Include;
-import org.screamingsandals.simpleinventories.inventory.InventorySet;
-import org.screamingsandals.simpleinventories.inventory.PlayerItemInfo;
+import org.screamingsandals.lib.utils.annotations.methods.OnPostEnable;
+import org.spongepowered.configurate.ConfigurateException;
+import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.serialize.SerializationException;
+import org.spongepowered.configurate.yaml.NodeStyle;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
+import io.github.pronze.sba.utils.SBAUtil;
 
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
+import static org.screamingsandals.bedwars.lib.lang.I18n.i18nonly;
+
 @Service
-@ServiceDependencies(dependsOn = {
-        SimpleInventoriesCore.class,
-        SBAConfig.class
-})
-public class SBAStoreInventoryV2 extends AbstractStoreInventory {
+public class SBAConfig implements IConfigurator {
 
-    public static SBAStoreInventoryV2 getInstance() {
-        return ServiceManager.get(SBAStoreInventoryV2.class);
+    public static SBAConfig getInstance() {
+        return ServiceManager.get(SBAConfig.class);
     }
 
-    public static List<Integer> sharpnessPrices = new ArrayList<>();
-    public static List<Integer> protectionPrices = new ArrayList<>();
-    public static List<Integer> efficiencyPrices = new ArrayList<>();
-    public static List<Integer> knockbackPrices = new ArrayList<>();
-    public static Map<String, List<Integer>> otherPrices = new HashMap<>();
+    public JavaPlugin plugin;
+    public File dataFolder;
+    public File langFolder, shopFolder, gamesInventoryFolder, levelsFolder, itemLimitsFolder;
+    public ConfigurationNode levelsNode;
+    public ConfigurationNode itemLimitsNode;
 
-    public SBAStoreInventoryV2(Controllable controllable) {
-        super("");
-        controllable.postEnable(this::loadPrices);
+    private ConfigurationNode configurationNode;
+    private YamlConfigurationLoader loader;
+    private ConfigGenerator generator;
+
+    public SBAConfig(JavaPlugin plugin) {
+        this.plugin = plugin;
+        loadDefaults();
     }
 
-    private void loadPrices() {
-        SBAConfig.getInstance().node("upgrades", "prices").childrenMap()
-                .forEach((key, val) -> {
-                    final var castedKey = ((String) key).toLowerCase();
-                    final var value = val.getInt(4);
-                    if (castedKey.startsWith("sharpness")) {
-                        sharpnessPrices.add(value);
-                    } else if (castedKey.startsWith("prot")) {
-                        protectionPrices.add(value);
-                    } else if (castedKey.startsWith("efficiency")) {
-                        efficiencyPrices.add(value);
-                    } else if (castedKey.startsWith("knockback")) {
-                        knockbackPrices.add(value);
-                    } else {
-                        final var otherKey = castedKey.split("-", 2)[0];
-                        otherPrices.computeIfAbsent(otherKey, k -> new ArrayList<>());
-                        otherPrices.get(otherKey).add(value);
-                    }
-                });
-        if (sharpnessPrices.isEmpty())
-            sharpnessPrices.add(4);
-        if (protectionPrices.isEmpty())
-            protectionPrices.add(4);
-        if (efficiencyPrices.isEmpty())
-            efficiencyPrices.add(4);
-        if (knockbackPrices.isEmpty())
-            knockbackPrices.add(4);
-        Logger.trace("Protection prices: {}",
-                protectionPrices.stream().map(String::valueOf).collect(Collectors.toList()));
-        Logger.trace("Efficiency prices: {}",
-                efficiencyPrices.stream().map(String::valueOf).collect(Collectors.toList()));
-        Logger.trace("Sharpness prices: {}",
-                sharpnessPrices.stream().map(String::valueOf).collect(Collectors.toList()));
-        Logger.trace("knockback prices: {}",
-                sharpnessPrices.stream().map(String::valueOf).collect(Collectors.toList()));
+    public ConfigurationNode node(Object... keys) {
+        return configurationNode.node(keys);
     }
 
-    @SneakyThrows
-    private void loadDefault(InventorySet inventorySet) {
-        inventorySet.getMainSubInventory().dropContents();
-        inventorySet.getMainSubInventory().getWaitingQueue()
-                .add(Include.of(Path.of(SBAStoreInventoryV2.class.getResource("/shop.yml").toURI())));
-        inventorySet.getMainSubInventory().process();
-    }
+    public void loadDefaults() {
+        this.dataFolder = plugin.getDataFolder();
 
-    @Override
-    public void onPostGenerateItem(ItemRenderEvent event) {
-        Player player = event.getPlayer().as(Player.class);
-        String itemName = event.getStack().getMaterial().platformName();
-        
-        // Проверяем, есть ли у игрока улучшенная версия этого предмета
-        String upgradedTo = PlayerItemTracker.getInstance().getNextUpgrade(player, itemName);
-        
-        if (upgradedTo != null) {
-            // Если есть улучшенная версия, скрываем этот предмет
-            event.setStack(org.screamingsandals.lib.item.builder.ItemStackFactory.getAir());
-            return;
-        }
-        
-        event.setStack(ShopUtil.applyTeamUpgradeEnchantsToItem(event.getStack(), event, StoreType.UPGRADES));
-    }
+        /* To avoid config confusions */
+        deleteFile("config.yml");
+        deleteFile("bwaconfig.yml");
 
-    @Override
-    public void onPreGenerateItem(ItemRenderEvent event) {
-        // do nothing here
-    }
+        try {
+            langFolder = new File(dataFolder, "languages");
+            gamesInventoryFolder = new File(dataFolder, "games-inventory");
+            shopFolder = new File(dataFolder, "shops");
+            levelsFolder = new File(dataFolder, "levels");
+            itemLimitsFolder = new File(dataFolder, "item-limits");
 
-    public Map.Entry<Boolean, Boolean> handlePurchase(Player player, AtomicReference<ItemStack> newItem,
-            AtomicReference<org.screamingsandals.lib.item.ItemStack> materialItem, PlayerItemInfo itemInfo,
-            ItemSpawnerType type, AtomicReference<String[]> messageOnFail) {
-        
-        boolean shouldSellStack = true;
-        String materialName = newItem.get().getType().name();
-        
-        // ===== ПРОВЕРКА ЛИМИТОВ ПЕРЕД ПОКУПКОЙ =====
-        if (SBAConfig.getInstance().isItemLimitsEnabled()) {
-            int limit = SBAConfig.getInstance().getItemLimit(materialName);
+            if (!shopFolder.exists()) {
+                shopFolder.mkdirs();
+            }
+            if (!gamesInventoryFolder.exists()) {
+                gamesInventoryFolder.mkdirs();
+            }
+            if (!langFolder.exists()) {
+                langFolder.mkdirs();
+            }
+            if (!levelsFolder.exists()) {
+                levelsFolder.mkdirs();
+            }
+            if (!itemLimitsFolder.exists()) {
+                itemLimitsFolder.mkdirs();
+            }
+
+            saveFile("languages/language_en.yml");
+            saveFile("languages/language_ru.yml");
+
+            saveFile("games-inventory/solo.yml");
+            saveFile("games-inventory/double.yml");
+            saveFile("games-inventory/triples.yml");
+            saveFile("games-inventory/squads.yml");
+
+            saveFile("shops/moved-to-bedwars.txt");
             
-            if (limit != -1) { // -1 = безлимит
-                if (PlayerItemTracker.getInstance().hasReachedLimit(player, materialName, limit)) {
-                    // Лимит исчерпан
-                    if (limit == 1) {
-                        LanguageService
-                            .getInstance()
-                            .get("item_limits.single_item")
-                            .send(Players.wrapPlayer(player));
-                    } else {
-                        LanguageService
-                            .getInstance()
-                            .get("item_limits.max_items")
-                            .replace("%limit%", String.valueOf(limit))
-                            .send(Players.wrapPlayer(player));
-                    }
-                    return Map.entry(false, false); // false, false - отменяем покупку и не списываем ресурсы
-                }
-            }
-        }
-        
-        // ===== ПРОВЕРКА НА УЛУЧШАЕМЫЙ ПРЕДМЕТ =====
-        boolean isUpgradeable = false;
-        String nextItemId = null;
-        
-        for (var property : itemInfo.getProperties()) {
-            if (property.hasName()) {
-                String propName = property.getPropertyName().toLowerCase();
-                if (propName.equals("upgradeable")) {
-                    isUpgradeable = true;
-                }
-                if (propName.equals("next")) {
-                    nextItemId = property.getPropertyData().getString();
-                }
-            }
-        }
-        
-        // Проверяем, не купил ли игрок уже этот уровень
-        if (isUpgradeable && nextItemId != null) {
-            String alreadyUpgraded = PlayerItemTracker.getInstance().getNextUpgrade(player, materialName);
-            if (alreadyUpgraded != null && !alreadyUpgraded.equals(nextItemId)) {
-                // Игрок уже купил более высокий уровень
-                LanguageService
-                    .getInstance()
-                    .get("shop.already_upgraded")
-                    .send(Players.wrapPlayer(player));
-                return Map.entry(false, false);
-            }
-        }
-        
-        final var game = Main.getInstance().getGameOfPlayer(player);
-        final var gameStorage = ArenaManager
-                .getInstance()
-                .get(game.getName())
-                .orElseThrow()
-                .getStorage();
-        final var team = game.getTeamOfPlayer(player);
-        final var wrappedPlayer = Players.wrapPlayer(player);
-        
-        if (itemInfo.getProperties().size() == 0) {
-            final var typeName = newItem.get().getType().name();
-
-            final var afterUnderscore = typeName.substring(typeName.contains("_") ? typeName.indexOf("_") + 1 : 0);
-            /**
-             * Apply enchants to item here according to TeamUpgrades.
-             */
-            ShopUtil.applyTeamEnchants(player, newItem.get());
-            switch (afterUnderscore.toLowerCase()) {
-                case "sword":
-                    if (SBAConfig.getInstance().node("replace-sword-on-upgrade").getBoolean(true)) {
-                        Arrays.stream(player.getInventory().getContents().clone())
-                                .filter(Objects::nonNull)
-                                .filter(itemStack -> itemStack.getType().name().endsWith("SWORD"))
-                                .filter(itemStack -> !itemStack.isSimilar(newItem.get()))
-                                .forEach(sword -> player.getInventory().removeItem(sword));
-                    }
-                    break;
-                case "boots":
-                case "chestplate":
-                case "helmet":
-                case "leggings":
-                    return Map.entry(ShopUtil.buyArmor(player, newItem.get().getType(), gameStorage, game), false);
-            }
-
-            // ===== УСПЕШНАЯ ПОКУПКА =====
-            if (shouldSellStack) {
-                // Отслеживаем для лимитов
-                if (SBAConfig.getInstance().isItemLimitsEnabled()) {
-                    PlayerItemTracker.getInstance().trackItem(player, materialName, 1);
-                }
-                
-                // Отслеживаем для улучшений
-                if (isUpgradeable && nextItemId != null) {
-                    PlayerItemTracker.getInstance().setNextUpgrade(player, materialName, nextItemId);
-                }
-            }
+            // Сохраняем levels.yml
+            saveFile("levels/levels.yml");
             
-            return Map.entry(true, true);
-        }
-        
-        for (var property : itemInfo.getProperties()) {
-            if (property.hasName()) {
-                final var propertyName = property.getPropertyName().toLowerCase();
-                var converted = ConfigurateUtils.raw(property.getPropertyData());
+            // Сохраняем item-limits.yml
+            saveFile("item-limits/item-limits.yml");
 
-                if (!(converted instanceof Map)) {
-                    converted = ShopUtil.nullValuesAllowingMap("value", converted);
+            moveFileIfNeeded("shop.yml");
+            moveFileIfNeeded("upgradeShop.yml");
+
+            saveShop("shop.yml", false);
+            saveShop("upgradeShop.yml", false);
+
+            loader = YamlConfigurationLoader
+                    .builder()
+                    .path(dataFolder.toPath().resolve("sbaconfig.yml"))
+                    .nodeStyle(NodeStyle.BLOCK)
+                    .build();
+
+            configurationNode = loader.load();
+
+            // Загружаем levels.yml
+            File levelsFile = new File(levelsFolder, "levels.yml");
+            if (levelsFile.exists()) {
+                try {
+                    YamlConfigurationLoader levelsLoader = YamlConfigurationLoader.builder()
+                        .path(levelsFile.toPath())
+                        .nodeStyle(NodeStyle.BLOCK)
+                        .build();
+                    levelsNode = levelsLoader.load();
+                } catch (ConfigurateException e) {
+                    e.printStackTrace();
+                    levelsNode = null;
                 }
-                // noinspection unchecked
-                var propertyData = (Map<String, Object>) converted;
-
-                // temporary fix
-                propertyData.putIfAbsent("name", propertyName);
-
-                var isAdd = false;
-                double levelToAdd = 0;
-                if (property.getPropertyData() != null && property.getPropertyData().childrenMap() != null)
-                    isAdd = property.getPropertyData().childrenMap().containsKey("add-levels");
-                if (isAdd) {
-                    levelToAdd = property.getPropertyData().childrenMap().get("add-levels").getDouble(1);
-                }
-                final int levelToAddInt = (int) levelToAdd;
-                // if (upgradeProperties.contains(propertyName)) {
-                switch (propertyName) {
-                    case "trap":
-                        if (!property.getPropertyData().hasChild("identifier")
-                                && property.getPropertyData().hasChild("data")) { // Fix support for SBW Trap special
-                                                                                  // item
-                            return Map.entry(true, true);
-                        }
-
-                        String trap_identifier = property.getPropertyData().childrenMap().get("identifier").getString();
-                        if (gameStorage.areTrapEnabled(team, trap_identifier)) {
-                            messageOnFail.set(MessageKeys.WAIT_FOR_TRAP);
-                            shouldSellStack = false;
-                        } else {
-                            final var blindnessTrapTitle = LanguageService
-                                    .getInstance()
-                                    .get(MessageKeys.CUSTOM_TRAP_PURCHASED_TITLE)
-                                    .replace("%trap%", trap_identifier)
-                                    .toComponent();
-
-                            CustomTrap trap = new CustomTrap();
-                            trap.setIdentifier(trap_identifier);
-                            trap.setTarget(property.getPropertyData().childrenMap().get("target").getString("enemy"));
-                            trap.setEffects(new ArrayList<>());
-                            property.getPropertyData().childrenMap().get("effects").childrenList()
-                                    .forEach(effectItem -> {
-                                        try {
-                                            String effectType = effectItem.childrenMap().get("type").getString();
-                                            var slibEffect = org.screamingsandals.lib.item.meta.PotionEffectType
-                                                    .ofNullable(effectType);
-
-                                            PotionEffectType type_;
-                                            if (slibEffect != null) {
-                                                type_ = slibEffect.as(PotionEffectType.class);
-                                            } else {
-                                                type_ = PotionEffectType.getByName(effectType);
-                                            }
-                                            if (type_ == null) {
-                                                Logger.error("{} is not a recognized Potion effect", effectType);
-                                                return;
-                                            }
-                                            // PotionEffectType type, int duration, int amplifier
-                                            PotionEffect pe = new PotionEffect(type_,
-                                                    effectItem.childrenMap().get("duration").getInt(),
-                                                    effectItem.childrenMap().get("level").getInt());
-                                            trap.getEffects().add(pe);
-                                        } catch (Throwable t) {
-                                            Logger.error(
-                                                    "Cannot parse potion effect, verify your custom trap configuration");
-                                        }
-                                    });
-                            CustomTrapTask.registerTrap(trap);
-
-                            gameStorage.setPurchasedTrap(team, true, trap_identifier);
-                            if (SBAConfig.getInstance().trapTitleEnabled())
-                                team.getConnectedPlayers().forEach(pl -> SBAUtil.sendTitle(Players.wrapPlayer(pl),
-                                        blindnessTrapTitle, org.screamingsandals.lib.spectator.Component.empty(), 20,
-                                        40, 20));
-                            if (SBAConfig.getInstance().trapMessageEnabled())
-                                team.getConnectedPlayers()
-                                        .forEach(pl -> Players.wrapPlayer(pl).sendMessage(blindnessTrapTitle));
-                        }
-                        break;
-                    case "sharpness":
-                        if (isAdd) {
-                            team.getConnectedPlayers().forEach(teamPlayer -> {
-                                LanguageService
-                                        .getInstance()
-                                        .get(MessageKeys.UGPRADE_TEAM_SHARPNESS)
-                                        .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                                        .send(Players.wrapPlayer(teamPlayer));
-
-                                Arrays.stream(teamPlayer.getInventory().getContents())
-                                        .filter(Objects::nonNull)
-                                        .forEach(item -> {
-                                            ShopUtil.increaseTeamEnchant(teamPlayer, item, Enchantment.DAMAGE_ALL,
-                                                    levelToAddInt);
-                                        });
-                            });
-                            break;
-                        }
-                        var teamSharpnessLevel = gameStorage.getSharpnessLevel(team).orElseThrow();
-                        var maxSharpnessLevel = SBAConfig.getInstance().node("upgrades", "limit", "Sharpness")
-                                .getInt(1);
-                        maxSharpnessLevel = Math.min(maxSharpnessLevel, sharpnessPrices.size());
-
-                        if (teamSharpnessLevel >= maxSharpnessLevel) {
-                            messageOnFail.set(MessageKeys.GREATEST_ENCHANTMENT);
-
-                            shouldSellStack = false;
-                        } else {
-                            var ePrice = sharpnessPrices.get(teamSharpnessLevel);
-                            teamSharpnessLevel = teamSharpnessLevel + 1;
-
-                            materialItem.set(ItemStackFactory.build(type.getStack(ePrice)));// . (ItemFactory. (
-                                                                                            // type.getStack(ePrice)));
-
-                            if (player.getInventory().containsAtLeast(materialItem.get().as(ItemStack.class),
-                                    ePrice)) {
-                                gameStorage.setSharpnessLevel(team, teamSharpnessLevel);
-                                Integer finalTeamSharpnessLevel = teamSharpnessLevel;
-                                team.getConnectedPlayers().forEach(teamPlayer -> {
-                                    LanguageService
-                                            .getInstance()
-                                            .get(MessageKeys.UGPRADE_TEAM_SHARPNESS)
-                                            .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                                            .send(Players.wrapPlayer(teamPlayer));
-
-                                    Arrays.stream(teamPlayer.getInventory().getContents())
-                                            .filter(Objects::nonNull)
-                                            .forEach(item -> {
-                                                ShopUtil.applyTeamEnchants(teamPlayer, item);
-                                            });
-                                });
-                            } else
-                                shouldSellStack = false;
-                        }
-                        break;
-                    case "knockback":
-                        if (isAdd) {
-                            team.getConnectedPlayers().forEach(teamPlayer -> {
-                                LanguageService
-                                        .getInstance()
-                                        .get(MessageKeys.UPGRADE_TEAM_KNOCKBACK)
-                                        .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                                        .send(Players.wrapPlayer(teamPlayer));
-
-                                Arrays.stream(teamPlayer.getInventory().getContents())
-                                        .filter(Objects::nonNull)
-                                        .forEach(item -> {
-                                            ShopUtil.increaseTeamEnchant(teamPlayer, item, Enchantment.KNOCKBACK,
-                                                    levelToAddInt);
-                                        });
-                            });
-                            break;
-                        }
-                        var teamKnockbackLevel = gameStorage.getSharpnessLevel(team).orElseThrow();
-                        var maxKnockbackLevel = SBAConfig.getInstance().node("upgrades", "limit", "Knockback")
-                                .getInt(1);
-
-                        if (teamKnockbackLevel >= maxKnockbackLevel) {
-                            shouldSellStack = false;
-                            messageOnFail.set(MessageKeys.GREATEST_ENCHANTMENT);
-                        } else {
-                            var ePrice = knockbackPrices.get(teamKnockbackLevel);
-                            teamKnockbackLevel = teamKnockbackLevel + 1;
-
-                            materialItem.set(ItemStackFactory.build(type.getStack(ePrice)));// . (ItemFactory. (
-                                                                                            // type.getStack(ePrice)));
-
-                            if (player.getInventory().containsAtLeast(materialItem.get().as(ItemStack.class),
-                                    ePrice)) {
-                                gameStorage.setSharpnessLevel(team, teamKnockbackLevel);
-                                Integer finalTeamSharpnessLevel = teamKnockbackLevel;
-                                team.getConnectedPlayers().forEach(teamPlayer -> {
-                                    LanguageService
-                                            .getInstance()
-                                            .get(MessageKeys.UPGRADE_TEAM_KNOCKBACK)
-                                            .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                                            .send(Players.wrapPlayer(teamPlayer));
-
-                                    Arrays.stream(teamPlayer.getInventory().getContents())
-                                            .filter(Objects::nonNull)
-                                            .forEach(item -> {
-                                                ShopUtil.applyTeamEnchants(teamPlayer, item);
-                                            });
-                                });
-                            } else
-                                shouldSellStack = false;
-                        }
-                        break;
-
-                    case "efficiency":
-                        if (isAdd) {
-                            team.getConnectedPlayers().forEach(teamPlayer -> {
-                                LanguageService
-                                        .getInstance()
-                                        .get(MessageKeys.UPGRADE_TEAM_EFFICIENCY)
-                                        .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                                        .send(Players.wrapPlayer(teamPlayer));
-                                Logger.trace("efficiency level add");
-                                Arrays.stream(teamPlayer.getInventory().getContents())
-                                        .filter(Objects::nonNull)
-                                        .forEach(item -> {
-                                            ShopUtil.increaseTeamEnchant(teamPlayer, item, Enchantment.DIG_SPEED,
-                                                    levelToAddInt);
-                                        });
-                            });
-                            break;
-                        }
-                        var efficiencyLevel = gameStorage.getEfficiencyLevel(team).orElseThrow();
-                        var maxEfficiencyLevel = SBAConfig.getInstance().node("upgrades", "limit", "Efficiency")
-                                .getInt(2);
-                        maxEfficiencyLevel = Math.min(maxEfficiencyLevel, efficiencyPrices.size());
-                        if (efficiencyLevel >= maxEfficiencyLevel) {
-                            shouldSellStack = false;
-                            messageOnFail.set(MessageKeys.GREATEST_ENCHANTMENT);
-
-                        } else {
-                            var ePrice = efficiencyPrices.get(efficiencyLevel);
-                            efficiencyLevel = efficiencyLevel + 1;
-                            materialItem.set(ItemStackFactory.build(type.getStack(ePrice)));// . (ItemFactory. (
-                                                                                            // type.getStack(ePrice)));
-
-                            if (player.getInventory().containsAtLeast(materialItem.get().as(ItemStack.class),
-                                    ePrice)) {
-                                gameStorage.setEfficiencyLevel(team, efficiencyLevel);
-                                Logger.trace("efficiency {}", efficiencyLevel);
-                                team.getConnectedPlayers().forEach(teamPlayer -> {
-                                    LanguageService
-                                            .getInstance()
-                                            .get(MessageKeys.UPGRADE_TEAM_EFFICIENCY)
-                                            .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                                            .send(Players.wrapPlayer(teamPlayer));
-
-                                    Arrays.stream(teamPlayer.getInventory().getContents())
-                                            .filter(Objects::nonNull)
-                                            .forEach(item -> {
-                                                ShopUtil.applyTeamEnchants(teamPlayer, item);
-                                            });
-                                });
-                            } else
-                                shouldSellStack = false;
-                        }
-                        break;
-                    case "blindtrap":
-                        if (gameStorage.areBlindTrapEnabled(team)) {
-                            shouldSellStack = false;
-                            messageOnFail.set(MessageKeys.WAIT_FOR_TRAP);
-
-                        } else {
-                            final var blindnessTrapTitle = LanguageService
-                                    .getInstance()
-                                    .get(MessageKeys.BLINDNESS_TRAP_PURCHASED_TITLE)
-                                    .toComponent();
-
-                            gameStorage.setPurchasedBlindTrap(team, true);
-                            if (SBAConfig.getInstance().trapTitleEnabled())
-                                team.getConnectedPlayers().forEach(pl -> SBAUtil.sendTitle(Players.wrapPlayer(pl),
-                                        blindnessTrapTitle, org.screamingsandals.lib.spectator.Component.empty(), 20,
-                                        40, 20));
-                            if (SBAConfig.getInstance().trapMessageEnabled())
-                                team.getConnectedPlayers()
-                                        .forEach(pl -> Players.wrapPlayer(pl).sendMessage(blindnessTrapTitle));
-                        }
-                        break;
-
-                    case "minertrap":
-                        if (gameStorage.areMinerTrapEnabled(team)) {
-                            shouldSellStack = false;
-                            messageOnFail.set(MessageKeys.WAIT_FOR_TRAP);
-
-                        } else {
-                            final var minerTrapTitle = LanguageService
-                                    .getInstance()
-                                    .get(MessageKeys.MINER_TRAP_PURCHASED_TITLE)
-                                    .toComponent();
-
-                            gameStorage.setPurchasedMinerTrap(team, true);
-                            if (SBAConfig.getInstance().trapTitleEnabled())
-                                team.getConnectedPlayers().forEach(pl -> SBAUtil.sendTitle(Players.wrapPlayer(pl),
-                                        minerTrapTitle, org.screamingsandals.lib.spectator.Component.empty(), 20, 40,
-                                        20));
-                            if (SBAConfig.getInstance().trapMessageEnabled())
-                                team.getConnectedPlayers()
-                                        .forEach(pl -> Players.wrapPlayer(pl).sendMessage(minerTrapTitle));
-                        }
-
-                        break;
-
-                    case "healpool":
-                        shouldSellStack = false;
-                        messageOnFail.set(null);
-
-                        if (gameStorage.arePoolEnabled(team)) {
-                            messageOnFail.set(MessageKeys.WAIT_FOR_TRAP);
-                        } else {
-                            var purchaseHealPoolMessage = LanguageService
-                                    .getInstance()
-                                    .get(MessageKeys.PURCHASED_HEAL_POOL_MESSAGE)
-                                    .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                                    .toComponent();
-
-                            gameStorage.setPurchasedPool(team, true);
-                            shouldSellStack = true;
-                            team.getConnectedPlayers().forEach(
-                                    pl -> Players.wrapPlayer(pl).sendMessage(purchaseHealPoolMessage));
-                        }
-                        break;
-                    case "forge":
-                        var map = property.getPropertyData().childrenMap();
-                        if (map != null) {
-
-                            double addLevels = 0.2;
-                            double maxLevel = 0;
-                            List<String> types = List.of();
-
-                            if (map.containsKey("type")) {
-                                try {
-                                    types = map.get("type").getList(String.class, List.of());
-                                } catch (SerializationException e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                            if (map.containsKey("add-levels")) {
-                                addLevels = map.get("add-levels").getDouble(0.2);
-                            }
-                            if (map.containsKey("max-level")) {
-                                maxLevel = map.get("max-level").getDouble(0);
-                            }
-
-                            boolean sendToAll = true;
-                            if (map.containsKey("notify-team")) {
-                                sendToAll = map.get("notify-team").getBoolean(true);
-                            }
-
-                            Logger.trace("Forge upgrade {}/{}::{}", addLevels, maxLevel, types);
-
-                            List<ItemSpawner> spawnersToUpgrade = new ArrayList<>();
-
-                            for (var spawner : game.getItemSpawners()) {
-                                if (spawner.getItemSpawnerType() == null) {
-                                    // Spawners with no valid type should be skipped
-                                    continue;
-                                }
-                                var material = spawner.getItemSpawnerType().getName().toLowerCase();
-                                if (types.contains(material)) {
-                                    if (spawner.getTeam() != null
-                                            && spawner.getTeam().getName().equals(team.getName())) {
-                                        if (spawner.getCurrentLevel() < maxLevel)
-                                            spawnersToUpgrade.add(spawner);
-                                    }
-                                }
-                            }
-                            double maxLevelF = maxLevel;
-                            if (spawnersToUpgrade.isEmpty()) {
-                                types.forEach(spawnerType -> {
-                                    double closestDistance = Double.MAX_VALUE;
-                                    ItemSpawner closestSpawner = null;
-                                    for (var spawner : game.getItemSpawners()) {
-                                        if (spawner.getItemSpawnerType() == null) {
-                                            // Spawners with no valid type should be skipped
-                                            continue;
-                                        }
-                                        if (spawner.getItemSpawnerType().getName().toLowerCase()
-                                                .equals(spawnerType)) {
-                                            double distance = team.getTeamSpawn().distance(spawner.getLocation());
-                                            if (distance < closestDistance) {
-                                                closestDistance = distance;
-                                                closestSpawner = spawner;
-                                            }
-
-                                        }
-                                    }
-                                    if (closestSpawner != null) {
-                                        double newLevel = closestSpawner.getCurrentLevel();
-                                        if (newLevel < maxLevelF)
-                                            spawnersToUpgrade.add(closestSpawner);
-                                    }
-                                });
-                            }
-
-                            for (var spawner : spawnersToUpgrade) {
-                                double newLevel = spawner.getCurrentLevel() + addLevels;
-                                if (newLevel > maxLevel && maxLevel > 0)
-                                    newLevel = maxLevel;
-                                spawner.setCurrentLevel(newLevel);
-                            }
-
-                            if (spawnersToUpgrade.isEmpty()) {
-                                messageOnFail.set(MessageKeys.GREATEST_SPAWNER);
-                                shouldSellStack = false;
-                            }
-                        }
-                        break;
-                    case "protection":
-                        if (isAdd) {
-                            team.getConnectedPlayers().forEach(teamPlayer -> {
-                                LanguageService
-                                        .getInstance()
-                                        .get(MessageKeys.UPGRADE_TEAM_PROTECTION)
-                                        .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                                        .send(Players.wrapPlayer(teamPlayer));
-
-                                Arrays.stream(teamPlayer.getInventory().getContents())
-                                        .filter(Objects::nonNull)
-                                        .forEach(item -> {
-                                            ShopUtil.increaseTeamEnchant(teamPlayer, item,
-                                                    Enchantment.PROTECTION_ENVIRONMENTAL, levelToAddInt);
-                                        });
-                            });
-                            break;
-                        }
-                        var teamProtectionLevel = gameStorage.getProtectionLevel(team).orElseThrow();
-                        var maxProtectionLevel = SBAConfig.getInstance().node("upgrades", "limit", "Protection")
-                                .getInt(4);
-                        maxProtectionLevel = Math.min(maxProtectionLevel, protectionPrices.size());
-
-                        if (teamProtectionLevel >= maxProtectionLevel) {
-                            shouldSellStack = false;
-                            messageOnFail.set(MessageKeys.GREATEST_ENCHANTMENT);
-
-                        } else {
-                            Logger.trace("protectionPrices:{}", protectionPrices);
-                            var ePrice = protectionPrices.get(teamProtectionLevel);
-                            Logger.trace("ePrice:{}", ePrice);
-                            teamProtectionLevel = teamProtectionLevel + 1;
-                            Logger.trace("teamProtectionLevel:{}", teamProtectionLevel);
-                            materialItem.set(ItemStackFactory.build(type.getStack(ePrice)));// . (ItemFactory. (
-                                                                                            // type.getStack(ePrice)));
-
-                            if (player.getInventory().containsAtLeast(materialItem.get().as(ItemStack.class),
-                                    ePrice)) {
-                                gameStorage.setProtectionLevel(team, teamProtectionLevel);
-                                ShopUtil.addEnchantsToPlayerArmor(player, teamProtectionLevel);
-
-                                var upgradeMessage = LanguageService
-                                        .getInstance()
-                                        .get(MessageKeys.UPGRADE_TEAM_PROTECTION)
-                                        .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                                        .toComponent();
-
-                                team.getConnectedPlayers().forEach(teamPlayer -> {
-                                    // ShopUtil.addEnchantsToPlayerArmor(teamPlayer, finalTeamProtectionLevel);
-                                    Arrays.stream(teamPlayer.getInventory().getContents())
-                                            .filter(Objects::nonNull)
-                                            .forEach(item -> {
-                                                ShopUtil.applyTeamEnchants(teamPlayer, item);
-                                            });
-                                    Players.wrapPlayer(teamPlayer).sendMessage(upgradeMessage);
-
-                                });
-                            } else
-                                shouldSellStack = false;
-                        }
-                        break;
-                    default:
-                        if (Arrays.stream(Enchantment.values())
-                                .anyMatch(x -> x.getName().equalsIgnoreCase(propertyName)
-                                        || EnchantmentType.of(x).location().path().equalsIgnoreCase(propertyName))) {
-
-                            if (isAdd) {
-                                team.getConnectedPlayers().forEach(teamPlayer -> {
-                                    LanguageService
-                                            .getInstance()
-                                            .get(MessageKeys.UPGRADE_TEAM_ENCHANT)
-                                            .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                                            .send(Players.wrapPlayer(teamPlayer));
-                                    Optional<Enchantment> ech = Arrays.stream(Enchantment.values())
-                                            .filter(x -> x.getName().equalsIgnoreCase(propertyName) || EnchantmentType
-                                                    .of(x).location().path().equalsIgnoreCase(propertyName))
-                                            .findAny();
-
-                                    Arrays.stream(teamPlayer.getInventory().getContents())
-                                            .filter(Objects::nonNull)
-                                            .forEach(item -> {
-                                                ShopUtil.increaseTeamEnchant(teamPlayer, item, ech.get(),
-                                                        levelToAddInt);
-                                            });
-                                });
-                                break;
-                            }
-                            var teamOtherLevel = gameStorage.getEnchantLevel(team, propertyName).orElseThrow();
-                            var maxOtherLevel = SBAConfig.getInstance().node("upgrades", "limit", propertyName)
-                                    .getInt(1);
-                            maxOtherLevel = Math.min(maxOtherLevel, otherPrices.get(propertyName).size());
-
-                            if (teamOtherLevel >= maxOtherLevel) {
-                                shouldSellStack = false;
-                                messageOnFail.set(MessageKeys.GREATEST_ENCHANTMENT);
-
-                            } else {
-                                var ePrice = otherPrices.get(propertyName).get(teamOtherLevel);
-                                teamOtherLevel = teamOtherLevel + 1;
-
-                                materialItem.set(ItemStackFactory.build(type.getStack(ePrice)));// . (ItemFactory. (
-                                                                                                // type.getStack(ePrice)));
-                                if (player.getInventory().containsAtLeast(materialItem.get().as(ItemStack.class),
-                                        ePrice)) {
-                                    gameStorage.setEnchantLevel(team, propertyName, teamOtherLevel);
-                                    team.getConnectedPlayers().forEach(teamPlayer -> {
-                                        LanguageService
-                                                .getInstance()
-                                                .get(MessageKeys.UPGRADE_TEAM_ENCHANT)
-                                                .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                                                .send(Players.wrapPlayer(teamPlayer));
-
-                                        Arrays.stream(teamPlayer.getInventory().getContents())
-                                                .filter(Objects::nonNull)
-                                                .forEach(item -> {
-                                                    ShopUtil.applyTeamEnchants(teamPlayer, item);
-                                                });
-                                    });
-                                } else
-                                    shouldSellStack = false;
-                            }
-                        } else {
-                            return Map.entry(true, true);
-                        }
-                        break;
-                }
-                // }
-
             } else {
+                levelsNode = null;
+                Logger.warn("levels.yml not found, using default values");
+            }
+            
+            // Загружаем item-limits.yml
+            File limitsFile = new File(itemLimitsFolder, "item-limits.yml");
+            if (limitsFile.exists()) {
+                try {
+                    YamlConfigurationLoader limitsLoader = YamlConfigurationLoader.builder()
+                        .path(limitsFile.toPath())
+                        .nodeStyle(NodeStyle.BLOCK)
+                        .build();
+                    itemLimitsNode = limitsLoader.load();
+                } catch (ConfigurateException e) {
+                    e.printStackTrace();
+                    itemLimitsNode = null;
+                }
+            } else {
+                itemLimitsNode = null;
+                Logger.warn("item-limits.yml not found, using default values");
+            }
 
+            generator = new ConfigGenerator(loader, configurationNode);
+            generator.start()
+                    .key("version").defValue(plugin.getDescription().getVersion())
+                    .key("locale").defValue("en")
+                    .key("prefix").defValue("[SBA]")
+                    .key("editing-hologram-enabled").defValue(true)
+                    .section("debug")
+                    .key("enabled").defValue(false)
+                    .back()
+                    .key("disable-item-damage").defValue(true)
+                    .key("permanent-items").defValue(false)
+                    .section("tnt-fireball-jumping")
+                    .key("source-damage").defValue(1)
+                    .key("acceleration-y").defValue(0.1)
+                    .key("reduce-y").defValue(2.0)
+                    .key("launch-multiplier").defValue(3.4)
+                    .key("detection-distance").defValue(8.0D)
+                    .key("fall-damage").defValue(3.0D)
+                    .back()
+                    .key("explosion-damage").defValue(0.25)
+                    .key("running-generator-drops").defValue(List.of("DIAMOND", "IRON_INGOT", "EMERALD", "GOLD_INGOT"))
+                    .key("block-item-drops").defValue(true)
+                    .key("allowed-item-drops")
+                    .defValue(List.of("DIAMOND", "IRON_INGOT", "EMERALD", "GOLD_INGOT", "GOLDEN_APPLE", "OBSIDIAN",
+                            "TNT"))
+                    .key("give-killer-resources").defValue(true)
+                    .key("replace-sword-on-upgrade").defValue(true)
+                    .key("block-players-putting-certain-items-onto-chest").defValue(true)
+                    .key("disable-armor-inventory-movement").defValue(true)
+                    .key("final-kill-lightning").defValue(true)
+                    .section("floating-generator")
+                    .section("mapping")
+                    .key("EMERALD").defValue("EMERALD_BLOCK")
+                    .key("DIAMOND").defValue("DIAMOND_BLOCK")
+                    .back()
+                    .key("enabled").defValue(true)
+                    .key("height").defValue(2.5)
+                    .back();
+            generator.saveIfModified();
+
+            if (!configurationNode.hasChild("upgrades"))
+                generator.start().section("upgrades").section("limit").key("Iron").defValue(48)
+                        .key("Gold").defValue(8)
+                        .key("Diamond-I").defValue(4)
+                        .key("Emerald-I").defValue(4)
+                        .key("Diamond-II").defValue(6)
+                        .key("Emerald-II").defValue(6)
+                        .key("Diamond-III").defValue(8)
+                        .key("Emerald-III").defValue(8)
+                        .key("Diamond-IV").defValue(12)
+                        .key("Emerald-IV").defValue(12)
+                        .back()
+                        .section("time")
+                        .key("Diamond-II").defValue(300)
+                        .key("Emerald-II").defValue(700)
+                        .key("Diamond-III").defValue(1000)
+                        .key("Emerald-III").defValue(1300)
+                        .key("Diamond-IV").defValue(1500)
+                        .key("Emerald-IV").defValue(1800)
+                        .back();
+            generator.saveIfModified();
+
+            Material repeater = Material.matchMaterial("REPEATER");
+            if (repeater == null)
+                repeater = Material.matchMaterial("REDSTONE_WIRE");
+            if (repeater == null)
+                repeater = Material.matchMaterial("CAKE");
+            generator.start()
+                    .section("upgrades")
+                    .key("timer-upgrades-enabled").defValue(true)
+                    .key("show-upgrade-message").defValue(true)
+                    .key("trap-detection-range").defValue(7)
+                    .key("multiplier").defValue(0.25)
+                    .section("limit")
+                    .key("Sharpness").defValue(1)
+                    .key("Protection").defValue(4)
+                    .key("Efficiency").defValue(2)
+                    .back()
+                    .section("prices")
+                    .key("Sharpness-I").defValue(4)
+                    .key("Sharpness-II").defValue(8)
+                    .key("Sharpness-III").defValue(12)
+                    .key("Sharpness-IV").defValue(16)
+                    .key("Prot-I").defValue(4)
+                    .key("Prot-II").defValue(8)
+                    .key("Prot-III").defValue(12)
+                    .key("Prot-IV").defValue(16)
+                    .key("Efficiency-I").defValue(4)
+                    .key("Efficiency-II").defValue(8)
+                    .key("Efficiency-III").defValue(12)
+                    .key("Efficiency-IV").defValue(16)
+                    .back()
+                    .back()
+                    .section("date")
+                    .key("format").defValue("MM/dd/yy")
+                    .back()
+                    .section("lobby-scoreboard")
+                    .key("enabled").defValue(true)
+                    .back()
+                    .section("game-scoreboard")
+                    .key("enabled").defValue(true)
+                    .back()
+                    .key("first_start").defValue(true)
+                    .section("shout")
+                    .key("time-out").defValue(60)
+                    .back()
+                    .key("disabled-sword-armor-damage").defValue(true)
+                    .section("game")
+                    .key("tab-health").defValue(true)
+                    .key("tag-health").defValue(true)
+                    .key("name-provider").defValue("%player%")
+                    .back()
+                    .section("games-inventory")
+                    .key("enabled").defValue(true)
+                    .back()
+                    .key("show-health-in-tablist").defValue(true)
+                    .key("show-health-under-player-name").defValue(true)
+                    .section("main-lobby")
+                    .key("enabled").defValue(false)
+                    .key("custom-chat").defValue(true)
+                    .key("tablist-modifications").defValue(true)
+                    .key("progress-format").defValue("§b%progress%§7/§a%total%")
+                    .back()
+                    .section("spectator")
+                    .key("adventure-mode").defValue(false)
+                    .section("teleporter")
+                    .key("enabled").defValue(true)
+                    .key("name").defValue("§cP§6l§ea§ay§9e§br§5s")
+                    .key("material").defValue(repeater.toString())
+                    .key("slot").defValue(0)
+                    .back()
+                    .section("tracker")
+                    .key("enabled").defValue(true)
+                    .key("keep-on-start").defValue(true)
+                    .key("name").defValue("§cP§6l§ea§ay§9e§br§5s")
+                    .key("material").defValue("COMPASS")
+                    .key("slot").defValue(4)
+                    .back()
+                    .back()
+                    .section("party")
+                    .key("enabled").defValue(true)
+                    .key("leader-autojoin-autoleave").defValue(true)
+                    .key("invite-expiration-time").defValue(60)
+                    .back()
+                    .section("team-status")
+                    .key("target-destroyed").defValue("§c✗")
+                    .key("target-exists").defValue("§a✓")
+                    .key("alive").defValue("%color% %team% §a✓ §8%you%")
+                    .key("destroyed").defValue("%color% %team% §a§f%players%§8 %you%")
+                    .key("eliminated").defValue("%color% %team% §c✘ %you%")
+                    .back()
+                    .section("chat-format")
+                    .section("game-chat")
+                    .key("enabled").defValue(true)
+                    .key("format").defValue("§7[%color%%team%§7] %color%%player% §f> %message%")
+                    .key("format-spectator").defValue("§7[§fSpectator§7] §f%player% > %message%")
+                    .key("all-chat-prefix").defValue("@a")
+                    .key("all-chat-format").defValue("§7[§fALL§7] §7[%color%%team%§7] %color%%player% §f> %message%")
+                    .back()
+                    .section("lobby-chat")
+                    .key("enabled").defValue(true)
+                    .key("format").defValue("%color%%player% §f> %message%")
+                    .back()
+                    .back()
+                    .section("shop")
+                    .key("can-downgrade-item").defValue(false)
+                    .key("removePurchaseMessages").defValue(false)
+                    .key("shopback").defValue("BARRIER")
+                    .key("pageback").defValue("ARROW")
+                    .key("pageforward").defValue("BARRIER")
+                    .key("shopcosmetic").defValue("GRAY_STAINED_GLASS_PANE")
+                    .key("rows").defValue(6)
+                    .key("render-actual-rows").defValue(6)
+                    .key("render-offset").defValue(0)
+                    .key("render-header-start").defValue(9)
+                    .key("render-footer-start").defValue(600)
+                    .key("items-on-row").defValue(9)
+                    .key("show-page-numbers").defValue(false)
+                    .key("trap-title").defValue(true)
+                    .key("trap-message").defValue(true)
+                    .key("limit-items-enabled").defValue(true)
+                    .key("tool-upgrade-enabled").defValue(true)
+                    .section("limits")
+                    .key("default").defValue(-1)
+                    .back()
+                    .section("tool-upgrade-prices")
+                    .section("pickaxe")
+                        .key("wood").defValue(4)
+                        .key("stone").defValue(8)
+                        .key("iron").defValue(16)
+                        .key("diamond").defValue(32)
+                    .back()
+                    .section("axe")
+                        .key("wood").defValue(4)
+                        .key("stone").defValue(8)
+                        .key("iron").defValue(16)
+                        .key("diamond").defValue(32)
+                    .back()
+                    .section("shears")
+                        .key("normal").defValue(8)
+                        .key("efficiency2").defValue(12)
+                        .key("efficiency3").defValue(16)
+                    .back()
+                    .back()
+                    .section("normal-shop")
+                    .key("entity-name").defValue(List.of("§bITEM SHOP", "§e§lRIGHT CLICK"))
+                    .section("skin")
+                    .key("value")
+                    .defValue(
+                            "ewogICJ0aW1lc3RhbXAiIDogMTYyNjA5MTkyNjQ3NCwKICAicHJvZmlsZUlkIiA6ICJiNjM2OWQ0MzMwNTU0NGIzOWE5OTBhODYyNWY5MmEwNSIsCiAgInByb2ZpbGVOYW1lIiA6ICJCb2JpbmhvXyIsCiAgInNpZ25hdHVyZVJlcXVpcmVkIiA6IHRydWUsCiAgInRleHR1cmVzIiA6IHsKICAgICJTS0lOIiA6IHsKICAgICAgInVybCIgOiAiaHR0cDovL3RleHR1cmVzLm1pbmVjcmFmdC5uZXQvdGV4dHVyZS9iZmRmOTBkZWI0YmYzNmM3Y2I4Y2Y2Zjg0NWQ0OTYzZWVhODkyNzRlMDBkNmFjMzQxNjJiYTc3MTE1ZjMyMWZhIgogICAgfQogIH0KfQ==")
+                    .key("signature")
+                    .defValue(
+                            "dRVORv3TXsP80Xfzy2/CYAHN92iF+4UYe8Un7jSEvCc9fwz9z39lB1ooO62hdArqZuNU2b7OKUZd8LYbctj8hUnaKdQ4kxbO1xQENRATNGsk1PWrVLgMikg2Vx4+2DCakE18f9UAVGHqGFVInI3dCCG7QmWqNI+l4g+GjxNzYVDWlW/PsB7CuQsOhJGY1hq2B1JRQ4mhZl0Tks/gU+qdw+ClOShB50KB2Q60d+fd04xYYCAJHk/a9c45EBBU8rHix8M2GV6hYXQZcdXZMB/KZBHAQfCrnlMhlTOzKfUYI5sDzSH6zBIWtE36zVeuYuM4Rppt0doT9qNJXJIYJ4UlZ11l8F9/ShQST+h138yJMgxRmIi3KAGhEJ8aVKkeeXMARbF9uFZbxHoZd66lhA5BWYsrFhyxKrPVO2AsfsfFQCY/DLurEdVVTWcN5K4Frh2Pt97gDJYBYXOuClaS367q57X76yuFqOFe6AvRI1Hvr22k8WvqpSqXzEXlfLUMwz9iKgbptS/Y9X78dseBwS7OdmUTFl1VgDZerQH1RDUrDTxr/Hiv0KE1czhbOQInRTaAT65dPB9RHZ3OnlgHcA7+7joRuPHihPuLH45NKHAxLn10CiolrtgxmGejkWqtNVKNlZNiAl49u4CRCqC13P/crCi9vlonjPg8mkLivsuyA8g=")
+                    .back()
+                    .key("name").defValue("[SBA] Item Shop")
+                    .back()
+                    .section("upgrade-shop")
+                    .key("name").defValue("[SBA] Upgrade Shop")
+                    .key("entity-name").defValue(List.of("§bTEAM", "§bUPGRADES", "§e§lRIGHT CLICK"))
+                    .section("skin")
+                    .key("value")
+                    .defValue(
+                            "ewogICJ0aW1lc3RhbXAiIDogMTYyNjA4ODMxNjI3OCwKICAicHJvZmlsZUlkIiA6ICIxYWZhZjc2NWI1ZGY0NjA3YmY3ZjY1ZGYzYWIwODhhOCIsCiAgInByb2ZpbGVOYW1lIiA6ICJMb3lfQmxvb2RBbmdlbCIsCiAgInNpZ25hdHVyZVJlcXVpcmVkIiA6IHRydWUsCiAgInRleHR1cmVzIiA6IHsKICAgICJTS0lOIiA6IHsKICAgICAgInVybCIgOiAiaHR0cDovL3RleHR1cmVzLm1pbmVjcmFmdC5uZXQvdGV4dHVyZS85ZjM0N2NiYjg3ZmVjMDA2MDc3ZDI2MTFjZjk4MTM4NGMwOWNlM2FjNDQ1M2FlY2M4MjMzYWMwODk3YjA3ZDYwIgogICAgfQogIH0KfQ==")
+                    .key("signature")
+                    .defValue(
+                            "oqCVAspoQ/uCoZX/2XTgoYjAGBVJSXLi+/QPHKPaGqP9zEXHE7k5TH5Z7K7x5D8ECCtZq8jW6GCzIzigvTKp2jRXoEnjnOmzc82P6nSV39NKueB6XVi12fluewaLNlzhJUwn1+7NOYlwKH3qN3/Rd8bE3lNv9bkrWN67zjnYDA7o4vxfkzgV9Hd1CEV9oVRsSne3rm7kYN1iRoMYArL4+EYTYUxd6HMUZ33b5yecQz+UctiGcRUXzPDU/RANxYlBkH6WIe6C8QH84MtjTD20X/2qmlhYeTA98Jf5eiPLfTd+30q603moUEf5VyEuaK3qxMektnaaIO0Wdx7fGYQelbDkejxqL7c//gupksKMqlFqBtLYTRcAXCS5hFbl2tnN80O4Kq0v4E1HOmBZYKZf/yYahNbRZyj0hNaG1dDdM/dqfBmBQWbcSnvb3M9YE9mXAoddryRii6kHVEQWO+C8xHECQK69AN/XhGnr+2X+cDfHHGIrVY10/rVXF2faPTauj/aFOZLp/fhOuLzOSQZYQCIe/jiO5BbEJ6owU5cyL0V/8x4609Pu7REhwiS2wDUrfLl5yyTyw232pVwO545awKV0O0/fnWeeLePuv8qBh/ngNZ52iDeEfpDeBe3DB1FFOSup96/eL/7blzDxKmzIVO29egg8xTVsYwUr23J1y0s=")
+                    .back()
+                    .back()
+                    .back()
+                    .section("player-statistics")
+                    .key("xp-to-level-up").defValue(5000)
+                    .back()
+                    .section("npc")
+                    .key("enabled").defValue(true)
+                    .key("shop-skin").defValue(561657710)
+                    .key("upgrade-shop-skin").defValue(779554483)
+                    .back()
+                    .section("generator-splitter")
+                    .key("allowed-materials").defValue(List.of("GOLD_INGOT", "IRON_INGOT"))
+                    .back()
+                    .section("upgrade-item")
+                    .key("boots").defValue(true)
+                    .key("leggings").defValue(true)
+                    .key("chestplate").defValue(false)
+                    .key("helmet").defValue(false)
+                    .section("enchants")
+                    .key("sharpness").defValue(List.of("SWORD"))
+                    .key("efficiency").defValue(List.of("PICK"))
+                    .key("knockback").defValue(List.of("SWORD"))
+                    .key("protection").defValue(List.of("HELMET", "BOOT", "CHESTPLATE", "LEGGINGS"))
+                    .key("THORNS").defValue(List.of("HELMET", "BOOT", "CHESTPLATE", "LEGGINGS"))
+                    .back()
+                    .back()
+                    .section("automatic-protection")
+                    .key("spawner-diameter").defValue(5)
+                    .key("team-spawn-diameter").defValue(3)
+                    .key("store-diameter").defValue(3)
+                    .back()
+                    .section("sounds")
+                    .key("on_trap_triggered").defValue("ENTITY_ENDER_DRAGON_GROWL")
+                    .back()
+                    .key("replace-stores-with-npc").defValue(true)
+                    .key("replace-stores-with-citizen").defValue(false)
+                    .section("update-checker")
+                    .key("console").defValue(true)
+                    .key("admins").defValue(true)
+                    .back()
+                    .section("ai")
+                    .key("enabled").defValue(false)
+                    .key("skins").defValue(List.of("robot", "artificial", "dream", "cloud", "zombie"))
+                    .key("delay-in-ticks").defValue(80)
+                    .key("use-stores").defValue(false)
+                    .key("infinite-material").defValue("OAK_PLANKS")
+                    .back();
+
+            generator.saveIfModified();
+            if (!node("debug", "enabled").getBoolean()) {
+                Logger.setMode(Logger.Level.DISABLED);
+            }
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public boolean trapTitleEnabled() {
+        return getBoolean("shop.trap-title", true);
+    }
+
+    public boolean trapMessageEnabled() {
+        return getBoolean("shop.trap-message", true);
+    }
+
+    public TeamStatusConfig teamStatus() {
+        return new TeamStatusConfig();
+    }
+
+    public class TeamStatusConfig {
+        public String targetDestroyed() {
+            return getString("team-status.target-destroyed", "§c✗");
+        }
+
+        public String targetExists() {
+            return getString("team-status.target-exists", "§a✓");
+        }
+
+        public String alive() {
+            return getString("team-status.alive", "%color% %team% §a✓ §8%you%");
+        }
+
+        public String destroyed() {
+            return getString("team-status.destroyed", "%color% %team% §a§f%players%§8 %you%");
+        }
+
+        public String eliminated() {
+            return getString("team-status.eliminated", "%color% %team% §c✘ %you%");
+        }
+    }
+
+    public boolean replaceStoreWithNpc() {
+        return node("replace-stores-with-npc").getBoolean(true);
+    }
+
+    public boolean replaceStoreWithCitizen() {
+        return node("replace-stores-with-citizen").getBoolean(false)
+                && SBA.getInstance().citizensFix.canEnable();
+    }
+
+    public PartyConfig party() {
+        return new PartyConfig();
+    }
+
+    public class PartyConfig {
+        public boolean enabled() {
+            return getBoolean("party.enabled", false);
+        }
+
+        public boolean autojoin() {
+            return getBoolean("party.leader-autojoin-autoleave", false);
+        }
+
+        public int expirationTime() {
+            return getInt("party.invite-expiration-time", 60);
+        }
+    }
+
+    public SpectatorConfig spectator() {
+        return new SpectatorConfig();
+    }
+
+    public class SpectatorConfig {
+        public boolean adventure() {
+            return getBoolean("spectator.adventure-mode", false);
+        }
+
+        public TeleporterConfig teleporter() {
+            return new TeleporterConfig();
+        }
+
+        public class TeleporterConfig {
+            public boolean enabled() {
+                return getBoolean("spectator.teleporter.enabled", false);
+            }
+
+            public String name() {
+                return getString("spectator.teleporter.name", "§cP§6l§ea§ay§9e§br§5s");
+            }
+
+            public String material() {
+                return getString("spectator.teleporter.material", "CAKE");
+            }
+
+            public int slot() {
+                return getInt("spectator.teleporter.slot", 0);
+            }
+
+            public ItemStack get() {
+                ItemStack compass = new ItemStack(Material.matchMaterial(material()));
+                var meta = compass.getItemMeta();
+                meta.setDisplayName(name());
+                compass.setItemMeta(meta);
+                return compass;
             }
         }
 
-        // ===== ОТСЛЕЖИВАНИЕ УСПЕШНОЙ ПОКУПКИ =====
-        if (shouldSellStack && SBAConfig.getInstance().isItemLimitsEnabled()) {
-            PlayerItemTracker.getInstance().trackItem(player, materialName, 1);
+        public TrackerConfig tracker() {
+            return new TrackerConfig();
         }
 
-        return Map.entry(shouldSellStack, false);
+        public class TrackerConfig {
+            public boolean enabled() {
+                return getBoolean("spectator.tracker.enabled", false);
+            }
+
+            public boolean keepOnStart() {
+                return getBoolean("spectator.tracker.keep-on-start", true);
+            }
+
+            public String name() {
+                return getString("spectator.tracker.name", "§cP§6l§ea§ay§9e§br§5s");
+            }
+
+            public String material() {
+                return getString("spectator.tracker.material", "COMPASS");
+            }
+
+            public int slot() {
+                return getInt("spectator.tracker.slot", 4);
+            }
+
+            public ItemStack get() {
+                ItemStack compass = new ItemStack(Material.matchMaterial(material()));
+                var meta = compass.getItemMeta();
+                meta.setDisplayName(name());
+                compass.setItemMeta(meta);
+                return compass;
+            }
+        }
+
+        public LeaveItem leave() {
+            return new LeaveItem();
+        }
+
+        public class LeaveItem {
+            public int position() {
+                return Main.getConfigurator().config.getInt("hotbar.leave", 8);
+            }
+
+            public ItemStack get() {
+                ItemStack leave = Main.getConfigurator().readDefinedItem("leavegame", "SLIME_BALL");
+                ItemMeta leaveMeta = leave.getItemMeta();
+                leaveMeta.setDisplayName(i18nonly("leave_from_game_item", "Leave game"));
+                leave.setItemMeta(leaveMeta);
+                return leave;
+            }
+        }
+
+        public boolean compassWhileSpectator() {
+            return getBoolean("spectator.compass-spectator", true);
+        }
+    }
+
+    public UpgradeConfig upgrades() {
+        return new UpgradeConfig();
+    }
+
+    public class UpgradeConfig {
+        public boolean boots() {
+            return getBoolean("upgrade-item.boots", true);
+        }
+
+        public boolean leggings() {
+            return getBoolean("upgrade-item.leggings", true);
+        }
+
+        public boolean chestplate() {
+            return getBoolean("upgrade-item.chestplate", false);
+        }
+
+        public boolean helmet() {
+            return getBoolean("upgrade-item.helmet", false);
+        }
+
+        public EnchantApplyConfig enchants() {
+            return new EnchantApplyConfig();
+        }
+
+        public class EnchantApplyConfig {
+            public List<String> keys() {
+                var keys = AddonAPI.getInstance().getConfigurator().getSubKeys("upgrade-item.enchants");
+                return keys;
+            }
+
+            public List<String> sharpness() {
+                return getStringList("upgrade-item.enchants.sharpness");
+            }
+
+            public List<String> knockback() {
+                return getStringList("upgrade-item.enchants.knockback");
+            }
+
+            public List<String> protection() {
+                return getStringList("upgrade-item.enchants.protection");
+            }
+
+            public List<String> efficiency() {
+                return getStringList("upgrade-item.enchants.efficiency");
+            }
+
+            public List<String> of(String s) {
+                return getStringList("upgrade-item.enchants." + s);
+            }
+        }
+    }
+
+    public AIConfig ai() {
+        return new AIConfig();
+    }
+
+    private boolean aiDisabled = false;
+
+    public class AIConfig {
+        public boolean enabled() {
+            return !aiDisabled && getBoolean("ai.enabled", false);
+        }
+
+        public String skin() {
+            var lst = new ArrayList<>(getStringList("ai.skins"));
+            Collections.shuffle(lst);
+            return lst.get(0);
+        }
+
+        public long delay() {
+            return getInt("ai.delay-in-ticks", 80);
+        }
+
+        public boolean useStores() {
+            return getBoolean("ai.use-stores", false);
+        }
+
+        public @NotNull String infiniteItem() {
+            String defaultMaterial = "STONE";
+            if (Material.getMaterial("OAK_PLANKS") != null) defaultMaterial = "OAK_PLANKS";
+            String returnValue = getString("ai.infinite-material", defaultMaterial);
+            if (Material.getMaterial(returnValue) == null) {
+                return defaultMaterial;
+            }
+            return returnValue;
+        }
+
+        public void disable() {
+            aiDisabled = true;
+        }
+    }
+
+    public boolean shouldCheckUpdate() {
+        return shouldWarnConsoleAboutUpdate() || shouldWarnPlayerAboutUpdate();
+    }
+
+    public boolean shouldWarnConsoleAboutUpdate() {
+        return getBoolean("update-checker.console", true);
+    }
+
+    public boolean shouldWarnPlayerAboutUpdate() {
+        return getBoolean("update-checker.admins", true);
+    }
+
+    private void moveFileIfNeeded(String path) {
+        var path1 = Bukkit.getPluginManager().getPlugin("SBA").getDataFolder().toPath().resolve("shops/" + path);
+        var path2 = SBA.getBedwarsPlugin().getDataFolder().toPath().resolve(path);
+        if (path1.toFile().exists()) {
+            if (!path2.toFile().exists() || path1.toFile().lastModified() > path2.toFile().lastModified()) {
+                try {
+                    Files.copy(path1, path2, StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException e) {
+                    Logger.error("Could not copy file {} from SBA/shops/{} to Bedwars/{}", path);
+                }
+            }
+        }
+    }
+
+    public void forceReload() {
+        loader = YamlConfigurationLoader.builder()
+                .path(dataFolder.toPath().resolve("sbaconfig.yml"))
+                .nodeStyle(NodeStyle.BLOCK)
+                .build();
+
+        try {
+            configurationNode = loader.load();
+        } catch (ConfigurateException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void saveFile(String fileName, String saveTo) {
+        final var file = new File(dataFolder, fileName);
+        if (!file.exists()) {
+            plugin.saveResource(saveTo, false);
+        }
+    }
+
+    private void deleteFile(String fileName) {
+        final var file = new File(fileName);
+        if (file.exists()) {
+            file.delete();
+        }
+    }
+
+    private void saveFile(String fileName) {
+        saveFile(fileName, fileName);
+    }
+
+    public void saveShop(String fileName, boolean force) {
+        var path2 = SBA.getBedwarsPlugin().getDataFolder().toPath().resolve(fileName);
+
+        if (!path2.toFile().exists() || force) {
+            try (var input = SBAConfig.class.getResourceAsStream("/shops/" + fileName)) {
+                System.out.println("Saving shop '" + fileName + "' at '" + path2 + "'");
+                path2.toFile().getParentFile().mkdirs();
+                try (var output = new FileOutputStream(path2.toFile())) {
+                    if (input != null) input.transferTo(output);
+                }
+            } catch (IOException e) {
+                Logger.error("Could not save store {} due to {}", fileName, e);
+            }
+        }
     }
 
     @Override
-    public @NotNull InventorySetBuilder getInventorySetBuilder() {
-        return SimpleInventoriesCore
-                .builder()
-                .categoryOptions(localOptionsBuilder -> localOptionsBuilder
-                        .backItem(
-                                SBAConfig.getInstance().readDefinedItem(
-                                        SBAConfig.getInstance().node("shop", "shopback"), "BARRIER"),
-                                itemBuilder -> itemBuilder.name(
-                                        LanguageService.getInstance().get(MessageKeys.SHOP_PAGE_BACK).toComponent()))
-                        .pageBackItem(
-                                SBAConfig.getInstance().readDefinedItem(
-                                        SBAConfig.getInstance().node("shop", "pageback"), "ARROW"),
-                                itemBuilder -> itemBuilder.name(
-                                        LanguageService.getInstance().get(MessageKeys.SHOP_PAGE_BACK).toComponent()))
-                        .pageForwardItem(
-                                SBAConfig.getInstance().readDefinedItem(
-                                        SBAConfig.getInstance().node("shop", "pageforward"), "BARRIER"),
-                                itemBuilder -> itemBuilder.name(
-                                        LanguageService.getInstance().get(MessageKeys.SHOP_PAGE_FORWARD).toComponent()))
-                        .cosmeticItem(SBAConfig.getInstance().readDefinedItem(
-                                SBAConfig.getInstance().node("shop", "shopcosmetic"),
-                                "GRAY_STAINED_GLASS_PANE"))
-                        .rows(SBAConfig.getInstance().node("shop", "rows").getInt(6))
-                        .renderActualRows(
-                                SBAConfig.getInstance().node("shop", "render-actual-rows").getInt(6))
-                        .renderOffset(SBAConfig.getInstance().node("shop", "render-offset").getInt(0))
-                        .renderHeaderStart(
-                                SBAConfig.getInstance().node("shop", "render-header-start").getInt(9))
-                        .renderFooterStart(
-                                SBAConfig.getInstance().node("shop", "render-footer-start").getInt(600))
-                        .itemsOnRow(SBAConfig.getInstance().node("shop", "items-on-row").getInt(9))
-                        .showPageNumber(SBAConfig.getInstance().node("shop", "show-page-numbers")
-                                .getBoolean(false))
-                        .inventoryType(SBAConfig.getInstance().node("shop", "inventory-type")
-                                .getString("CHEST"))
-                        .prefix(LanguageService.getInstance().get(MessageKeys.SHOP_NAME).toComponent()))
-                .allowAccessToConsole(
-                        Main.getConfigurator().config.getBoolean("shop.allow-execution-of-console-commands", true))
-
-                // old shop format compatibility (SIv1, SBW 0.2.x)
-                .variableToProperty("upgrade", "upgrade")
-                .variableToProperty("generate-lore", "generateLore")
-                .variableToProperty("generated-lore-text", "generatedLoreText")
-                .variableToProperty("currency-changer", "currencyChanger");
+    public void upgrade() {
+        try {
+            node("version").set(plugin.getDescription().getVersion());
+            saveConfig();
+            SBAUtil.reloadPlugin(Main.getInstance(), null);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 
-    @EventHandler
-    public void onBedWarsOpenShop(BedwarsOpenShopEvent event) {
-        event.setResult(BedwarsOpenShopEvent.Result.DISALLOW_UNKNOWN);
-        if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
-            LanguageService
-                    .getInstance()
-                    .get(MessageKeys.MESSAGE_NOT_IN_GAME)
-                    .send(Players.wrapPlayer(event.getPlayer()));
-            return;
+    @Override
+    public double getDouble(String path, double def) {
+        return node((Object[]) path.split("\\.")).getDouble(def);
+    }
+
+    @Override
+    public void saveConfig() {
+        try {
+            this.loader.save(this.configurationNode);
+        } catch (ConfigurateException e) {
+            e.printStackTrace();
         }
-        if (Main.getInstance().getGameOfPlayer(event.getPlayer()).getTeamOfPlayer(event.getPlayer()) == null) {
-            LanguageService
-                    .getInstance()
-                    .get(MessageKeys.MESSAGE_NOT_IN_GAME)
-                    .send(Players.wrapPlayer(event.getPlayer()));
-            return;
+    }
+
+    @Override
+    public List<String> getStringList(String string) {
+        final var list = new ArrayList<String>();
+        try {
+            for (String s : Objects.requireNonNull(node((Object[]) string.split("\\.")).getList(String.class))) {
+                s = ChatColor.translateAlternateColorCodes('&', s);
+                list.add(s);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
-        openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
-                (GameStore) event.getStore());
+        return list;
+    }
+
+    @Override
+    public List<String> getSubKeys(String string) {
+        try {
+            return node((Object[]) string.split("\\.")).childrenMap().keySet().stream()
+                    .map(Object::toString)
+                    .collect(Collectors.toList());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return List.of();
+    }
+
+    public void set(String path, Object value) {
+        try {
+            node(path).set(value);
+            generator.saveIfModified();
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public Integer getInt(String path, Integer def) {
+        return node((Object[]) path.split("\\.")).getInt(def);
+    }
+
+    @Override
+    public Byte getByte(String path, Byte def) {
+        final var val = node((Object[]) path.split("\\.")).getInt(def);
+        if (val > 127 || val < -128) return def;
+        return (byte) val;
+    }
+
+    @Override
+    public Boolean getBoolean(String path, boolean def) {
+        return node((Object[]) path.split("\\.")).getBoolean(def);
+    }
+
+    public String getString(String path) {
+        return ChatColor.translateAlternateColorCodes('&',
+                Objects.requireNonNull(node((Object[]) path.split("\\.")).getString()));
+    }
+
+    @Override
+    public String getString(String path, String def) {
+        final var str = getString(path);
+        if (str == null) {
+            return def;
+        }
+        return str;
+    }
+
+    public org.screamingsandals.lib.item.ItemStack readDefinedItem(ConfigurationNode node, String def) {
+        if (!node.empty()) {
+            var obj = node.raw();
+            return Objects.requireNonNullElse(ItemStackFactory.build(obj), ItemStackFactory.getAir());
+        }
+        return Objects.requireNonNullElse(ItemStackFactory.build(def), ItemStackFactory.getAir());
+    }
+
+    // ========== МЕТОДЫ ДЛЯ УРОВНЕЙ ==========
+    
+    public String getLevelPrefix(int level) {
+        if (levelsNode == null) return "&7[✩]";
+        
+        var prefixes = levelsNode.node("level-system", "prefixes");
+        for (var entry : prefixes.childrenMap().entrySet()) {
+            String range = entry.getKey().toString();
+            String[] parts = range.split("-");
+            int min = Integer.parseInt(parts[0]);
+            int max = Integer.parseInt(parts[1]);
+            
+            if (level >= min && level <= max) {
+                return ChatColor.translateAlternateColorCodes('&', 
+                    entry.getValue().getString("&7[✩]"));
+            }
+        }
+        return "&7[✩]";
+    }
+
+    public int getRequiredXP(int level) {
+        if (levelsNode == null) {
+            return 1000 + (level - 1) * 500;
+        }
+        
+        int baseXP = levelsNode.node("level-system", "base-xp").getInt(1000);
+        
+        // Находим множитель для данного уровня
+        int multiplier = 500;
+        var multipliers = levelsNode.node("level-system", "multipliers");
+        
+        for (var entry : multipliers.childrenMap().entrySet()) {
+            String range = entry.getKey().toString();
+            String[] parts = range.split("-");
+            int min = Integer.parseInt(parts[0]);
+            int max = Integer.parseInt(parts[1]);
+            
+            if (level >= min && level <= max) {
+                multiplier = entry.getValue().getInt(500);
+                break;
+            }
+        }
+        
+        // Расчёт: baseXP + (level - 1) * multiplier
+        return baseXP + (level - 1) * multiplier;
+    }
+
+    public List<String> getLevelRewards(int level) {
+        if (levelsNode == null) return new ArrayList<>();
+        try {
+            return levelsNode.node("level-system", "rewards", String.valueOf(level), "commands")
+                .getList(String.class, new ArrayList<>());
+        } catch (SerializationException e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+    
+    public String getLevelRewardBroadcast(int level) {
+        if (levelsNode == null) return null;
+        return levelsNode.node("level-system", "rewards", String.valueOf(level), "broadcast").getString();
+    }
+    
+    // ========== МЕТОДЫ ДЛЯ ЛИМИТОВ ПРЕДМЕТОВ ==========
+    
+    public boolean isItemLimitsEnabled() {
+        return getBoolean("shop.limit-items-enabled", true);
+    }
+    
+    public int getItemLimit(String materialName) {
+        if (itemLimitsNode == null) return getDefaultItemLimit();
+        return itemLimitsNode.node("limits", materialName).getInt(getDefaultItemLimit());
+    }
+    
+    public int getDefaultItemLimit() {
+        return getInt("shop.limits.default", -1);
+    }
+    
+    // ========== МЕТОДЫ ДЛЯ ПРОКАЧКИ ИНСТРУМЕНТОВ ==========
+    
+    public boolean isToolUpgradeEnabled() {
+        return getBoolean("shop.tool-upgrade-enabled", true);
+    }
+    
+    public int getToolUpgradePrice(String toolType, String level) {
+        return getInt("shop.tool-upgrade-prices." + toolType + "." + level, 4);
+    }
+    
+    public String getNextToolLevel(String currentLevel) {
+        switch (currentLevel) {
+            case "wood": return "stone";
+            case "stone": return "iron";
+            case "iron": return "diamond";
+            case "normal": return "efficiency2";
+            case "efficiency2": return "efficiency3";
+            default: return null;
+        }
     }
 }
