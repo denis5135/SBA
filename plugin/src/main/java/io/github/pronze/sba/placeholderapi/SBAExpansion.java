@@ -1,6 +1,7 @@
 package io.github.pronze.sba.placeholderapi;
 
 import io.github.pronze.sba.SBA;
+import io.github.pronze.sba.config.SBAConfig;
 import io.github.pronze.sba.game.ArenaManager;
 import io.github.pronze.sba.game.tasks.GeneratorTask;
 import io.github.pronze.sba.service.PlayerWrapperService;
@@ -40,6 +41,10 @@ public class SBAExpansion extends PlaceholderExpansion {
         %sba_player_level%
         %sba_player_xp%
         %sba_player_progress%
+        %sba_player_level_prefix%
+        %sba_player_level_number%
+        %sba_player_level_required%
+        %sba_player_level_progress_percent%
     
         %sba_game_status%
         %sba_game_tier%
@@ -72,11 +77,13 @@ public class SBAExpansion extends PlaceholderExpansion {
         Logger.trace("Placeholder '" + identifier + "' was requested.");
         String[] identifiers = identifier.split("_");
         if (identifiers.length <= 1) return null;
+        
         if (identifiers[0].equalsIgnoreCase("player")) {
             if (player == null) {
                 return "";
             }
             final SBAPlayerWrapper database = PlayerWrapperService.getInstance().get(player).orElseThrow();
+            
             switch (identifiers[1]) {
                 case "level":
                     return Integer.toString(database.getLevel());
@@ -84,6 +91,18 @@ public class SBAExpansion extends PlaceholderExpansion {
                     return Integer.toString(database.getXP());
                 case "progress":
                     return Integer.toString(database.getIntegerProgress());
+                case "level_prefix":
+                    return SBAConfig.getInstance().getLevelPrefix(database.getLevel());
+                case "level_number":
+                    return Integer.toString(database.getLevel());
+                case "level_required":
+                    int nextLevel = database.getLevel() + 1;
+                    return Integer.toString(SBAConfig.getInstance().getRequiredXP(nextLevel));
+                case "level_progress_percent":
+                    int current = database.getXP();
+                    int required = SBAConfig.getInstance().getRequiredXP(database.getLevel() + 1);
+                    int percent = (current * 100) / required;
+                    return Integer.toString(percent);
             }
         } else if (identifiers[0].equalsIgnoreCase("game")) {
             if (identifiers.length < 2) return identifier;
