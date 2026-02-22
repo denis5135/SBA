@@ -151,7 +151,7 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                         .getInstance()
                         .get("item_limits.max_items")
                         .replace("%limit%", String.valueOf(limit))
-                        .replace("%limit%", String.valueOf(limit))
+                        .send(Players.wrapPlayer(player));
                     return Map.entry(false, false);
                 }
             }
