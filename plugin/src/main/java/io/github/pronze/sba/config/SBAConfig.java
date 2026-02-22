@@ -460,16 +460,6 @@ public class SBAConfig implements IConfigurator {
     }
 
     public class TeamStatusConfig {
-        /*
-         * .section("team-status")
-         * .key("target-destroyed").defValue("§c\u2717")
-         * .key("target-exists").defValue("§a\u2713")
-         * .key("alive").defValue("%color% %team% §a\u2713 §8%you%")
-         * .key("destroyed").defValue("%color% %team% §a§f%players%§8 %you%")
-         * .key("eliminated").defValue("%color% %team% §c\u2718 %you%")
-         * .back()
-         */
-
         public String targetDestroyed() {
             return getString("team-status.target-destroyed", "§c✗");
         }
@@ -516,20 +506,12 @@ public class SBAConfig implements IConfigurator {
         public int expirationTime() {
             return getInt("party.invite-expiration-time", 60);
         }
-        /*
-         * .section("party")
-         * .key("enabled").defValue(true)
-         * .key("leader-autojoin-autoleave").defValue(true)
-         * .key("invite-expiration-time").defValue(60)
-         * .back()
-         */
     }
 
     public SpectatorConfig spectator() {
         return new SpectatorConfig();
     }
 
-    // "fake-spectator"
     public class SpectatorConfig {
         public boolean adventure() {
             return getBoolean("spectator.adventure-mode", false);
@@ -563,7 +545,6 @@ public class SBAConfig implements IConfigurator {
                 compass.setItemMeta(meta);
                 return compass;
             }
-
         }
 
         public TrackerConfig tracker() {
@@ -598,7 +579,6 @@ public class SBAConfig implements IConfigurator {
                 compass.setItemMeta(meta);
                 return compass;
             }
-
         }
 
         public LeaveItem leave() {
@@ -622,12 +602,6 @@ public class SBAConfig implements IConfigurator {
         public boolean compassWhileSpectator() {
             return getBoolean("spectator.compass-spectator", true);
         }
-        /*
-         * .section("compass")
-         * .key("enabled").defValue(true)
-         * .key("name").defValue("Players")
-         * .back()
-         */
     }
 
     public UpgradeConfig upgrades() {
@@ -635,11 +609,6 @@ public class SBAConfig implements IConfigurator {
     }
 
     public class UpgradeConfig {
-        /*
-         * .section("upgrade-item")
-         * .key("leggings").defValue(true)
-         * .key("chestplate").defValue(false)
-         */
         public boolean boots() {
             return getBoolean("upgrade-item.boots", true);
         }
@@ -662,9 +631,7 @@ public class SBAConfig implements IConfigurator {
 
         public class EnchantApplyConfig {
             public List<String> keys() {
-                var keys = AddonAPI
-                        .getInstance()
-                        .getConfigurator().getSubKeys("upgrade-item.enchants");
+                var keys = AddonAPI.getInstance().getConfigurator().getSubKeys("upgrade-item.enchants");
                 return keys;
             }
 
@@ -697,7 +664,6 @@ public class SBAConfig implements IConfigurator {
     private boolean aiDisabled = false;
 
     public class AIConfig {
-
         public boolean enabled() {
             return !aiDisabled && getBoolean("ai.enabled", false);
         }
@@ -718,11 +684,9 @@ public class SBAConfig implements IConfigurator {
 
         public @NotNull String infiniteItem() {
             String defaultMaterial = "STONE";
-            if (Material.getMaterial("OAK_PLANKS") != null)
-                defaultMaterial = "OAK_PLANKS";
-            String returnValue =getString("ai.infinite-material", defaultMaterial);
-            if(Material.getMaterial(returnValue)==null)
-            {
+            if (Material.getMaterial("OAK_PLANKS") != null) defaultMaterial = "OAK_PLANKS";
+            String returnValue = getString("ai.infinite-material", defaultMaterial);
+            if (Material.getMaterial(returnValue) == null) {
                 return defaultMaterial;
             }
             return returnValue;
@@ -731,7 +695,6 @@ public class SBAConfig implements IConfigurator {
         public void disable() {
             aiDisabled = true;
         }
-
     }
 
     public boolean shouldCheckUpdate() {
@@ -749,21 +712,19 @@ public class SBAConfig implements IConfigurator {
     private void moveFileIfNeeded(String path) {
         var path1 = Bukkit.getPluginManager().getPlugin("SBA").getDataFolder().toPath().resolve("shops/" + path);
         var path2 = SBA.getBedwarsPlugin().getDataFolder().toPath().resolve(path);
-        if (path1.toFile().exists())
-            if (!path2.toFile().exists() || path1.toFile().lastModified() > path2.toFile().lastModified())
+        if (path1.toFile().exists()) {
+            if (!path2.toFile().exists() || path1.toFile().lastModified() > path2.toFile().lastModified()) {
                 try {
-                    Files.copy(
-                            path1,
-                            path2,
-                            StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(path1, path2, StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException e) {
                     Logger.error("Could not copy file {} from SBA/shops/{} to Bedwars/{}", path);
                 }
+            }
+        }
     }
 
     public void forceReload() {
-        loader = YamlConfigurationLoader
-                .builder()
+        loader = YamlConfigurationLoader.builder()
                 .path(dataFolder.toPath().resolve("sbaconfig.yml"))
                 .nodeStyle(NodeStyle.BLOCK)
                 .build();
@@ -794,21 +755,19 @@ public class SBAConfig implements IConfigurator {
     }
 
     public void saveShop(String fileName, boolean force) {
-
         var path2 = SBA.getBedwarsPlugin().getDataFolder().toPath().resolve(fileName);
 
-        if (!path2.toFile().exists() || force)
+        if (!path2.toFile().exists() || force) {
             try (var input = SBAConfig.class.getResourceAsStream("/shops/" + fileName)) {
                 System.out.println("Saving shop '" + fileName + "' at '" + path2 + "'");
                 path2.toFile().getParentFile().mkdirs();
                 try (var output = new FileOutputStream(path2.toFile())) {
-                    if (input != null)
-                        input.transferTo(output);
+                    if (input != null) input.transferTo(output);
                 }
             } catch (IOException e) {
                 Logger.error("Could not save store {} due to {}", fileName, e);
             }
-
+        }
     }
 
     @Override
@@ -816,7 +775,6 @@ public class SBAConfig implements IConfigurator {
         try {
             node("version").set(plugin.getDescription().getVersion());
             saveConfig();
-
             SBAUtil.reloadPlugin(Main.getInstance(), null);
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -854,7 +812,8 @@ public class SBAConfig implements IConfigurator {
     @Override
     public List<String> getSubKeys(String string) {
         try {
-            return node((Object[]) string.split("\\.")).childrenMap().keySet().stream().map(o -> o.toString())
+            return node((Object[]) string.split("\\.")).childrenMap().keySet().stream()
+                    .map(Object::toString)
                     .collect(Collectors.toList());
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -873,15 +832,13 @@ public class SBAConfig implements IConfigurator {
 
     @Override
     public Integer getInt(String path, Integer def) {
-
         return node((Object[]) path.split("\\.")).getInt(def);
     }
 
     @Override
     public Byte getByte(String path, Byte def) {
         final var val = node((Object[]) path.split("\\.")).getInt(def);
-        if (val > 127 || val < -128)
-            return def;
+        if (val > 127 || val < -128) return def;
         return (byte) val;
     }
 
@@ -909,16 +866,15 @@ public class SBAConfig implements IConfigurator {
             var obj = node.raw();
             return Objects.requireNonNullElse(ItemStackFactory.build(obj), ItemStackFactory.getAir());
         }
-
         return Objects.requireNonNullElse(ItemStackFactory.build(def), ItemStackFactory.getAir());
     }
 
     // ========== МЕТОДЫ ДЛЯ УРОВНЕЙ ==========
     
     public String getLevelPrefix(int level) {
-        if (levelsNode == null) return "&7[Lv." + level + "]";
+        if (levelsNode == null) return "&7[✩]";
         
-        var prefixes = levelsNode.node("prefixes");
+        var prefixes = levelsNode.node("level-system", "prefixes");
         for (var entry : prefixes.childrenMap().entrySet()) {
             String range = entry.getKey().toString();
             String[] parts = range.split("-");
@@ -930,44 +886,50 @@ public class SBAConfig implements IConfigurator {
                     entry.getValue().getString("&7[✩]"));
             }
         }
-        return "&7[Lv." + level + "]";
+        return "&7[✩]";
     }
 
     public int getRequiredXP(int level) {
-        if (levelsNode == null) return 1000 + (level - 1) * 500;
-        
-        var custom = levelsNode.node("leveling", "custom");
-        if (!custom.empty()) {
-            return custom.node(String.valueOf(level)).getInt(0);
+        if (levelsNode == null) {
+            return 1000 + (level - 1) * 500;
         }
         
-        String type = levelsNode.node("leveling", "formula", "type").getString("LINEAR");
-        int base = levelsNode.node("leveling", "formula", "base").getInt(1000);
-        int multiplier = levelsNode.node("leveling", "formula", "multiplier").getInt(500);
+        int baseXP = levelsNode.node("level-system", "base-xp").getInt(1000);
         
-        switch (type.toUpperCase()) {
-            case "LINEAR":
-                return base + (level - 1) * multiplier;
-            case "EXPONENTIAL":
-                return (int)(base * Math.pow(multiplier/100.0 + 1, level - 1));
-            default:
-                return base + (level - 1) * multiplier;
+        // Находим множитель для данного уровня
+        int multiplier = 500;
+        var multipliers = levelsNode.node("level-system", "multipliers");
+        
+        for (var entry : multipliers.childrenMap().entrySet()) {
+            String range = entry.getKey().toString();
+            String[] parts = range.split("-");
+            int min = Integer.parseInt(parts[0]);
+            int max = Integer.parseInt(parts[1]);
+            
+            if (level >= min && level <= max) {
+                multiplier = entry.getValue().getInt(500);
+                break;
+            }
         }
+        
+        // Расчёт: baseXP + (level - 1) * multiplier
+        return baseXP + (level - 1) * multiplier;
     }
 
     public List<String> getLevelRewards(int level) {
         if (levelsNode == null) return new ArrayList<>();
         try {
-            return levelsNode.node("rewards", String.valueOf(level), "commands")
+            return levelsNode.node("level-system", "rewards", String.valueOf(level), "commands")
                 .getList(String.class, new ArrayList<>());
         } catch (SerializationException e) {
             e.printStackTrace();
             return new ArrayList<>();
         }
-     }
+    }
+    
     public String getLevelRewardBroadcast(int level) {
         if (levelsNode == null) return null;
-        return levelsNode.node("rewards", String.valueOf(level), "broadcast").getString();
+        return levelsNode.node("level-system", "rewards", String.valueOf(level), "broadcast").getString();
     }
     
     // ========== МЕТОДЫ ДЛЯ ЛИМИТОВ ПРЕДМЕТОВ ==========
