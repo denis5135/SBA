@@ -11,6 +11,11 @@ cannot-downgrade-item: "<red>Ты не можешь ухудшить %item%!"
 dragon-spawn: "<red>Драконы заспавнились! Удачи"
 dragon-trap-purchased: "<gold>Дракон был куплен!"
 game-starts-in: "<yellow>Игра начинается через <red>%seconds% <yellow>секунд"
+# ========== СООБЩЕНИЯ ДЛЯ ЛИМИТОВ ==========
+item_limits:
+  single_item: "<red>❌ Ты не можешь купить второй такой предмет!</red>"
+  max_items: "<red>❌ Ты купил максимум этих предметов (%limit% шт.)</red>"
+  cannot_buy: "<red>❌ Этот предмет нельзя купить!</red>"
 bed-destroyed:
   title: "<red><bold>КРОВАТЬ РАЗРУШЕНА!</bold>"
   sub-title: "Вы больше не будете возрождаться!"
