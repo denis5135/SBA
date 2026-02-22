@@ -621,7 +621,7 @@ public class ShopUtil {
                 // .cosmeticItem(cosmeticItem)
                 .renderHeaderStart(600)
                 .renderFooterStart(600)
-                .renderOffset(9)
+                .renderOffset(0)
                 .rows(4)
                 .renderActualRows(4)
                 .showPageNumber(false);
