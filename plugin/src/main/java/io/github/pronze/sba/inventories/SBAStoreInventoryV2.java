@@ -147,7 +147,11 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 int currentCount = ItemLimitManager.getInstance().getPlayerItemCount(player, materialName);
                 if (currentCount >= limit) {
                     // Лимит исчерпан - используем прямое сообщение вместо MessageKeys
-                    player.sendMessage("§cТы не можешь купить больше этого предмета!");
+                    LanguageService
+                        .getInstance()
+                        .get("item_limits.max_items")
+                        .replace("%limit%", String.valueOf(limit))
+                        .replace("%limit%", String.valueOf(limit))
                     return Map.entry(false, false);
                 }
             }
