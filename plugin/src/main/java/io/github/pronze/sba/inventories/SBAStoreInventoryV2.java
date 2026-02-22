@@ -9,6 +9,7 @@ import io.github.pronze.sba.game.tasks.CustomTrap;
 import io.github.pronze.sba.game.tasks.CustomTrapTask;
 import io.github.pronze.sba.lib.lang.LanguageService;
 import io.github.pronze.sba.manager.ItemLimitManager;
+import io.github.pronze.sba.manager.PlayerItemTracker;
 import io.github.pronze.sba.utils.Logger;
 import io.github.pronze.sba.utils.SBAUtil;
 import io.github.pronze.sba.utils.ShopUtil;
@@ -124,8 +125,18 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
 
     @Override
     public void onPostGenerateItem(ItemRenderEvent event) {
-        // event.setStack(ShopUtil.applyTeamUpgradeEnchantsToItem(event.getStack(),
-        // event, StoreType.NORMAL));
+        Player player = event.getPlayer().as(Player.class);
+        String itemName = event.getStack().getMaterial().platformName();
+        
+        // Проверяем, есть ли у игрока улучшенная версия этого предмета
+        String upgradedTo = PlayerItemTracker.getInstance().getNextUpgrade(player, itemName);
+        
+        if (upgradedTo != null) {
+            // Если есть улучшенная версия, скрываем этот предмет
+            event.setStack(org.screamingsandals.lib.item.builder.ItemStackFactory.getAir());
+            return;
+        }
+        
         event.setStack(ShopUtil.applyTeamUpgradeEnchantsToItem(event.getStack(), event, StoreType.UPGRADES));
     }
 
@@ -138,26 +149,62 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
             AtomicReference<org.screamingsandals.lib.item.ItemStack> materialItem, PlayerItemInfo itemInfo,
             ItemSpawnerType type, AtomicReference<String[]> messageOnFail) {
         
+        boolean shouldSellStack = true;
+        String materialName = newItem.get().getType().name();
+        
         // ===== ПРОВЕРКА ЛИМИТОВ ПЕРЕД ПОКУПКОЙ =====
         if (SBAConfig.getInstance().isItemLimitsEnabled()) {
-            String materialName = newItem.get().getType().name();
             int limit = SBAConfig.getInstance().getItemLimit(materialName);
             
             if (limit != -1) { // -1 = безлимит
-                int currentCount = ItemLimitManager.getInstance().getPlayerItemCount(player, materialName);
-                if (currentCount >= limit) {
-                    // Лимит исчерпан - используем прямое сообщение вместо MessageKeys
-                    LanguageService
-                        .getInstance()
-                        .get("item_limits.max_items")
-                        .replace("%limit%", String.valueOf(limit))
-                        .send(Players.wrapPlayer(player));
-                    return Map.entry(false, false);
+                if (PlayerItemTracker.getInstance().hasReachedLimit(player, materialName, limit)) {
+                    // Лимит исчерпан
+                    if (limit == 1) {
+                        LanguageService
+                            .getInstance()
+                            .get("item_limits.single_item")
+                            .send(Players.wrapPlayer(player));
+                    } else {
+                        LanguageService
+                            .getInstance()
+                            .get("item_limits.max_items")
+                            .replace("%limit%", String.valueOf(limit))
+                            .send(Players.wrapPlayer(player));
+                    }
+                    return Map.entry(false, false); // false, false - отменяем покупку и не списываем ресурсы
                 }
             }
         }
         
-        boolean shouldSellStack = true;
+        // ===== ПРОВЕРКА НА УЛУЧШАЕМЫЙ ПРЕДМЕТ =====
+        boolean isUpgradeable = false;
+        String nextItemId = null;
+        
+        for (var property : itemInfo.getProperties()) {
+            if (property.hasName()) {
+                String propName = property.getPropertyName().toLowerCase();
+                if (propName.equals("upgradeable")) {
+                    isUpgradeable = true;
+                }
+                if (propName.equals("next")) {
+                    nextItemId = property.getPropertyData().getString();
+                }
+            }
+        }
+        
+        // Проверяем, не купил ли игрок уже этот уровень
+        if (isUpgradeable && nextItemId != null) {
+            String alreadyUpgraded = PlayerItemTracker.getInstance().getNextUpgrade(player, materialName);
+            if (alreadyUpgraded != null && !alreadyUpgraded.equals(nextItemId)) {
+                // Игрок уже купил более высокий уровень
+                LanguageService
+                    .getInstance()
+                    .get("shop.already_upgraded")
+                    .send(Players.wrapPlayer(player));
+                return Map.entry(false, false);
+            }
+        }
+        
         final var game = Main.getInstance().getGameOfPlayer(player);
         final var gameStorage = ArenaManager
                 .getInstance()
@@ -192,10 +239,17 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                     return Map.entry(ShopUtil.buyArmor(player, newItem.get().getType(), gameStorage, game), false);
             }
 
-            // ===== ОТСЛЕЖИВАНИЕ УСПЕШНОЙ ПОКУПКИ =====
-            if (shouldSellStack && SBAConfig.getInstance().isItemLimitsEnabled()) {
-                String materialName = newItem.get().getType().name();
-                ItemLimitManager.getInstance().addPurchase(player, materialName);
+            // ===== УСПЕШНАЯ ПОКУПКА =====
+            if (shouldSellStack) {
+                // Отслеживаем для лимитов
+                if (SBAConfig.getInstance().isItemLimitsEnabled()) {
+                    PlayerItemTracker.getInstance().trackItem(player, materialName, 1);
+                }
+                
+                // Отслеживаем для улучшений
+                if (isUpgradeable && nextItemId != null) {
+                    PlayerItemTracker.getInstance().setNextUpgrade(player, materialName, nextItemId);
+                }
             }
             
             return Map.entry(true, true);
@@ -733,8 +787,7 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
 
         // ===== ОТСЛЕЖИВАНИЕ УСПЕШНОЙ ПОКУПКИ =====
         if (shouldSellStack && SBAConfig.getInstance().isItemLimitsEnabled()) {
-            String materialName = newItem.get().getType().name();
-            ItemLimitManager.getInstance().addPurchase(player, materialName);
+            PlayerItemTracker.getInstance().trackItem(player, materialName, 1);
         }
 
         return Map.entry(shouldSellStack, false);
