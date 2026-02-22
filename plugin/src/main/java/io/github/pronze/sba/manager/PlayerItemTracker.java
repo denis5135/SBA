@@ -13,11 +13,11 @@ public class PlayerItemTracker {
     
     private static PlayerItemTracker instance;
     
-    // Карта: UUID игрока -> (название предмета -> уровень/количество)
+    // Карта: UUID игрока -> (название предмета -> количество)
     private final Map<UUID, Map<String, Integer>> playerItems = new ConcurrentHashMap<>();
     
-    // Карта: UUID игрока -> (тип инструмента -> текущий уровень)
-    private final Map<UUID, Map<String, String>> playerToolLevels = new ConcurrentHashMap<>();
+    // Карта: UUID игрока -> (название предмета -> следующий уровень)
+    private final Map<UUID, Map<String, String>> playerUpgrades = new ConcurrentHashMap<>();
     
     // Карта: UUID игрока -> список предметов для очистки при смерти
     private final Map<UUID, List<ItemStack>> deathItems = new ConcurrentHashMap<>();
@@ -83,54 +83,66 @@ public class PlayerItemTracker {
     }
     
     /**
-     * Устанавливает уровень инструмента
+     * Сохраняет следующий уровень для улучшаемого предмета
      */
-    public void setToolLevel(Player player, String toolType, String level) {
+    public void setNextUpgrade(Player player, String currentItem, String nextItem) {
         UUID uuid = player.getUniqueId();
-        Map<String, String> tools = playerToolLevels.getOrDefault(uuid, new HashMap<>());
-        tools.put(toolType, level);
-        playerToolLevels.put(uuid, tools);
+        Map<String, String> upgrades = playerUpgrades.getOrDefault(uuid, new HashMap<>());
+        upgrades.put(currentItem, nextItem);
+        playerUpgrades.put(uuid, upgrades);
     }
     
     /**
-     * Получает уровень инструмента
+     * Получает следующий уровень для предмета
      */
-    public String getToolLevel(Player player, String toolType) {
+    public String getNextUpgrade(Player player, String currentItem) {
         UUID uuid = player.getUniqueId();
-        Map<String, String> tools = playerToolLevels.get(uuid);
-        
-        if (tools != null) {
-            return tools.get(toolType);
+        Map<String, String> upgrades = playerUpgrades.get(uuid);
+        if (upgrades != null) {
+            return upgrades.get(currentItem);
         }
         return null;
     }
     
     /**
-     * Проверяет, есть ли у игрока этот предмет
+     * Проверяет, купил ли игрок этот предмет (для лимитов)
      */
-    public boolean hasItem(Player player, String materialName) {
-        return getItemCount(player, materialName) > 0 || hasItemInInventory(player, materialName);
+    public boolean hasReachedLimit(Player player, String materialName, int limit) {
+        if (limit <= 0) return false;
+        
+        int currentCount = getItemCount(player, materialName);
+        int inventoryCount = countItemsInInventory(player, materialName);
+        
+        return (currentCount + inventoryCount) >= limit;
     }
     
     /**
-     * Проверяет наличие предмета в инвентаре
+     * Подсчитывает количество предметов в инвентаре
      */
-    private boolean hasItemInInventory(Player player, String materialName) {
+    public int countItemsInInventory(Player player, String materialName) {
         PlayerInventory inv = player.getInventory();
+        int count = 0;
         
         for (ItemStack item : inv.getContents()) {
             if (item != null && item.getType().name().equals(materialName)) {
-                return true;
+                count += item.getAmount();
             }
         }
         
         for (ItemStack item : inv.getArmorContents()) {
             if (item != null && item.getType().name().equals(materialName)) {
-                return true;
+                count += item.getAmount();
             }
         }
         
-        return false;
+        return count;
+    }
+    
+    /**
+     * Проверяет наличие предмета в инвентаре
+     */
+    public boolean hasItemInInventory(Player player, String materialName) {
+        return countItemsInInventory(player, materialName) > 0;
     }
     
     /**
@@ -160,7 +172,7 @@ public class PlayerItemTracker {
     public void resetPlayer(Player player) {
         UUID uuid = player.getUniqueId();
         playerItems.remove(uuid);
-        playerToolLevels.remove(uuid);
+        playerUpgrades.remove(uuid);
         deathItems.remove(uuid);
     }
     
@@ -169,7 +181,7 @@ public class PlayerItemTracker {
      */
     public void clearPlayer(UUID uuid) {
         playerItems.remove(uuid);
-        playerToolLevels.remove(uuid);
+        playerUpgrades.remove(uuid);
         deathItems.remove(uuid);
     }
     
@@ -181,7 +193,7 @@ public class PlayerItemTracker {
         Map<String, Object> stats = new HashMap<>();
         
         stats.put("items", playerItems.getOrDefault(uuid, new HashMap<>()));
-        stats.put("tools", playerToolLevels.getOrDefault(uuid, new HashMap<>()));
+        stats.put("upgrades", playerUpgrades.getOrDefault(uuid, new HashMap<>()));
         stats.put("deathItems", deathItems.containsKey(uuid));
         
         return stats;
