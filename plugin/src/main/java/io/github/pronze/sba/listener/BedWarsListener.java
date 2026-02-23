@@ -28,7 +28,6 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.screamingsandals.bedwars.Main;
-import org.screamingsandals.bedwars.api.Team;
 import org.screamingsandals.bedwars.api.events.*;
 import org.screamingsandals.bedwars.api.game.GameStatus;
 import org.screamingsandals.bedwars.game.Game;
@@ -103,7 +102,6 @@ public class BedWarsListener implements Listener {
 
     @EventHandler
     public void onTargetBlockDestroyed(BedwarsTargetBlockDestroyedEvent e) {
-
         final var game = e.getGame();
         ArenaManager
                 .getInstance()
@@ -114,13 +112,12 @@ public class BedWarsListener implements Listener {
         Player breaker = e.getPlayer();
         if (breaker != null) {
             PlayerLevelManager.getInstance().addXP(breaker, 30);
-            breaker.sendMessage("§a✦ Вы получили §e30 опыта §aза уничтожение кровати!");
+            breaker.sendMessage("  §a✦ Вы получили §e30 опыта §aза уничтожение кровати!");
         }
     }
 
     @EventHandler
     public void onPostRebuildingEvent(BedwarsPostRebuildingEvent e) {
-
         final var game = e.getGame();
         ArenaManager
                 .getInstance()
@@ -143,7 +140,7 @@ public class BedWarsListener implements Listener {
     @EventHandler
     public void onOver(BedwarsGameEndingEvent e) {
         Logger.trace("SBA onOver{}", e);
-    
+
         final var game = e.getGame();
         ArenaManager
                 .getInstance()
@@ -152,16 +149,17 @@ public class BedWarsListener implements Listener {
         
         // ========== НАЧИСЛЕНИЕ ОПЫТА ЗА ПОБЕДУ ==========
         // Получаем победителя прямо из события
-        Team winningTeam = e.getWinningTeam();
+        org.screamingsandals.bedwars.api.Team winningTeam = e.getWinningTeam();
         
         if (winningTeam != null) {
             int winXP = 50; // опыт за победу
             
-            // Используем getConnectedPlayers() из Game, чтобы получить всех игроков
-            // и потом отфильтровать по команде
+            // Проходим по всем игрокам игры и проверяем, в победившей ли они команде
             for (Player player : game.getConnectedPlayers()) {
                 // Проверяем, в победившей ли команде игрок
-                if (winningTeam.isPlayerInTeam(player)) {
+                if (winningTeam.getPlayers().stream()
+                        .anyMatch(p -> p.getUuid().equals(player.getUniqueId()))) {
+                    
                     int beforeXP = PlayerLevelManager.getInstance().getPlayerXP(player);
                     
                     PlayerLevelManager.getInstance().addXP(player, winXP);
@@ -181,7 +179,9 @@ public class BedWarsListener implements Listener {
         // Даём опыт всем игрокам, которые не в победившей команде
         for (Player player : game.getConnectedPlayers()) {
             // Пропускаем победителей
-            if (winningTeam != null && winningTeam.isPlayerInTeam(player)) {
+            if (winningTeam != null && 
+                winningTeam.getPlayers().stream()
+                    .anyMatch(p -> p.getUuid().equals(player.getUniqueId()))) {
                 continue;
             }
             
@@ -198,6 +198,16 @@ public class BedWarsListener implements Listener {
             player.sendMessage("  §7Текущий уровень: §6" + newLevel + " " + 
                 PlayerLevelManager.getInstance().getPlayerPrefix(player));
         }
+    }
+
+    private io.github.pronze.sba.party.PartySetting.GameMode gamemodeOf(Player connectedPlayer) {
+        AtomicReference<io.github.pronze.sba.party.PartySetting.GameMode> ref = new AtomicReference<>(
+                io.github.pronze.sba.party.PartySetting.GameMode.PUBLIC);
+        SBA.getInstance().getPartyManager().getPartyOf(SBA.getInstance().getPlayerWrapper(connectedPlayer))
+                .ifPresent(party -> {
+                    ref.set(party.getSettings().getGamemode());
+                });
+        return ref.get();
     }
 
     @EventHandler
