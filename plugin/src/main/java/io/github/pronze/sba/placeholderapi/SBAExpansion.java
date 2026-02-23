@@ -125,7 +125,7 @@ public class SBAExpansion extends PlaceholderExpansion {
                 int position = Integer.parseInt(identifiers[2]); // 1, 2, 3, etc.
                 
                 PlayerLevelManager levelManager = PlayerLevelManager.getInstance();
-                var topPlayers = levelManager.getTopPlayers(10); // получаем топ-10
+                var topPlayers = levelManager.getTopPlayers(20); // получаем топ-20
                 
                 if (position > topPlayers.size()) {
                     return "Н/Д";
