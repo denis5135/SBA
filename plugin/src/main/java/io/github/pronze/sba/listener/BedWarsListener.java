@@ -3,6 +3,7 @@ package io.github.pronze.sba.listener;
 import io.github.pronze.sba.MessageKeys;
 import io.github.pronze.sba.config.SBAConfig;
 import io.github.pronze.sba.events.SBAFinalKillEvent;
+import io.github.pronze.sba.levels.PlayerLevelManager;
 import io.github.pronze.sba.lib.lang.LanguageService;
 import io.github.pronze.sba.party.IParty;
 import io.github.pronze.sba.party.PartyManager;
@@ -140,6 +141,9 @@ public class BedWarsListener implements Listener {
                 .getInstance()
                 .get(game.getName())
                 .ifPresent(arena -> ((Arena) arena).onOver(e));
+        
+        // TODO: Добавить начисление опыта за победу
+        // Здесь нужно будет определить победившую команду и дать опыт всем её игрокам
     }
 
     public io.github.pronze.sba.party.PartySetting.GameMode gamemodeOf(Player connectedPlayer) {
@@ -655,9 +659,18 @@ public class BedWarsListener implements Listener {
                                         Logger.trace("Incrementing killer kills to: {}", killerData.getKills() + 1);
                                         // increment kill counter for killer
                                         killerData.setKills(killerData.getKills() + 1);
+                                        
+                                        // ========== НАЧИСЛЕНИЕ ОПЫТА ==========
+                                        // Базовый опыт за убийство
+                                        PlayerLevelManager.getInstance().addXP(killer, 10);
+                                        
                                         if (!victimTeam.isAlive()) {
                                             // increment final kill counter for killer
                                             killerData.setFinalKills(killerData.getFinalKills() + 1);
+                                            
+                                            // Дополнительный опыт за финальное убийство
+                                            PlayerLevelManager.getInstance().addXP(killer, 20);
+                                            
                                             Bukkit.getPluginManager()
                                                     .callEvent(new SBAFinalKillEvent(game, victim, killer));
                                             if (SBAConfig.getInstance().node("final-kill-lightning").getBoolean(true)) {
