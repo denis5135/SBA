@@ -15,7 +15,6 @@ public class LevelConfig {
     private final File configFile;
     private YamlConfiguration config;
     
-    // Используем TreeMap для автоматической сортировки по уровням
     private final NavigableMap<Integer, LevelData> levels = new TreeMap<>();
     private int maxLevel = 0;
 
@@ -33,7 +32,6 @@ public class LevelConfig {
 
     public void reload() {
         if (!configFile.exists()) {
-            // Создаём дефолтный файл, если его нет
             SBA.getInstance().saveResource("levels/levels.yml", false);
         }
         
@@ -73,7 +71,6 @@ public class LevelConfig {
             }
         }
         
-        // Если уровней нет, создаём дефолтные
         if (levels.isEmpty()) {
             createDefaultLevels();
         }
@@ -82,21 +79,43 @@ public class LevelConfig {
     private void createDefaultLevels() {
         levels.clear();
         
-        // Создаём 10 дефолтных уровней
+        // Старый добрый switch/case для Java 11
         for (int i = 1; i <= 10; i++) {
-            String prefix = switch (i) {
-                case 1 -> "&7[✩]";
-                case 2 -> "&8[✩]";
-                case 3 -> "&f[✩]";
-                case 4 -> "&e[✩]";
-                case 5 -> "&6[✩]";
-                case 6 -> "&c[✩]";
-                case 7 -> "&a[✩]";
-                case 8 -> "&b[✩]";
-                case 9 -> "&d[✩]";
-                case 10 -> "&7[★]";
-                default -> "&7[✩]";
-            };
+            String prefix;
+            switch (i) {
+                case 1:
+                    prefix = "&7[✩]";
+                    break;
+                case 2:
+                    prefix = "&8[✩]";
+                    break;
+                case 3:
+                    prefix = "&f[✩]";
+                    break;
+                case 4:
+                    prefix = "&e[✩]";
+                    break;
+                case 5:
+                    prefix = "&6[✩]";
+                    break;
+                case 6:
+                    prefix = "&c[✩]";
+                    break;
+                case 7:
+                    prefix = "&a[✩]";
+                    break;
+                case 8:
+                    prefix = "&b[✩]";
+                    break;
+                case 9:
+                    prefix = "&d[✩]";
+                    break;
+                case 10:
+                    prefix = "&7[★]";
+                    break;
+                default:
+                    prefix = "&7[✩]";
+            }
             
             int xpRequired = i == 1 ? 0 : 1000 * (i - 1);
             
@@ -105,7 +124,6 @@ public class LevelConfig {
         
         maxLevel = 10;
         
-        // Сохраняем дефолтные в файл
         save();
     }
 
@@ -123,13 +141,9 @@ public class LevelConfig {
         }
     }
 
-    /**
-     * Получить префикс для уровня
-     */
     public String getLevelPrefix(int level) {
         LevelData data = levels.get(level);
         if (data == null) {
-            // Если уровень не найден, берём ближайший меньший
             Map.Entry<Integer, LevelData> lower = levels.lowerEntry(level);
             if (lower != null) {
                 return ChatColor.translateAlternateColorCodes('&', lower.getValue().getPrefix());
@@ -139,18 +153,13 @@ public class LevelConfig {
         return ChatColor.translateAlternateColorCodes('&', data.getPrefix());
     }
 
-    /**
-     * Получить требуемый опыт для уровня
-     */
     public int getRequiredXP(int level) {
         LevelData data = levels.get(level);
         if (data == null) {
-            // Если уровень не найден, интерполируем
             Map.Entry<Integer, LevelData> lower = levels.lowerEntry(level);
             Map.Entry<Integer, LevelData> higher = levels.higherEntry(level);
             
             if (lower != null && higher != null) {
-                // Линейная интерполяция между ближайшими уровнями
                 int lowerLevel = lower.getKey();
                 int higherLevel = higher.getKey();
                 int lowerXP = lower.getValue().getXpRequired();
@@ -159,10 +168,8 @@ public class LevelConfig {
                 double progress = (double)(level - lowerLevel) / (higherLevel - lowerLevel);
                 return lowerXP + (int)((higherXP - lowerXP) * progress);
             } else if (lower != null) {
-                // Если есть только меньший уровень, экстраполируем
                 return lower.getValue().getXpRequired() + 1000;
             } else if (higher != null) {
-                // Если есть только больший уровень
                 return higher.getValue().getXpRequired() - 1000;
             }
             return 1000 * level;
@@ -170,23 +177,14 @@ public class LevelConfig {
         return data.getXpRequired();
     }
 
-    /**
-     * Получить максимальный уровень
-     */
     public int getMaxLevel() {
         return maxLevel;
     }
 
-    /**
-     * Проверить, существует ли уровень
-     */
     public boolean hasLevel(int level) {
         return levels.containsKey(level);
     }
 
-    /**
-     * Получить уровень по количеству опыта
-     */
     public int getLevelByXP(int xp) {
         int level = 1;
         for (Map.Entry<Integer, LevelData> entry : levels.entrySet()) {
@@ -199,16 +197,10 @@ public class LevelConfig {
         return level;
     }
 
-    /**
-     * Получить данные уровня
-     */
     public LevelData getLevelData(int level) {
         return levels.get(level);
     }
 
-    /**
-     * Класс данных уровня
-     */
     public static class LevelData {
         private final int level;
         private final String prefix;
