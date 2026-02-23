@@ -6,9 +6,12 @@ import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class PlayerLevelManager {
     private static PlayerLevelManager instance;
@@ -18,7 +21,6 @@ public class PlayerLevelManager {
     private LevelConfig levelConfig;
 
     private PlayerLevelManager() {
-        // Исправлено: используем getPluginInstance()
         dataFile = new File(SBA.getPluginInstance().getDataFolder(), "player-levels.yml");
         levelConfig = LevelConfig.getInstance();
         load();
@@ -78,6 +80,11 @@ public class PlayerLevelManager {
 
     public String getPlayerPrefix(Player player) {
         int level = getPlayerLevel(player);
+        return levelConfig.getLevelPrefix(level);
+    }
+    
+    public String getPlayerPrefix(UUID uuid) {
+        int level = getPlayerLevel(uuid);
         return levelConfig.getLevelPrefix(level);
     }
 
@@ -165,6 +172,27 @@ public class PlayerLevelManager {
         for (Map.Entry<UUID, PlayerData> entry : cache.entrySet()) {
             entry.getValue().level = levelConfig.getLevelByXP(entry.getValue().xp);
         }
+    }
+    
+    /**
+     * Получить топ игроков по опыту
+     * @param limit количество игроков в топе
+     * @return список Map.Entry с UUID и опытом, отсортированный по убыванию опыта
+     */
+    public List<Map.Entry<UUID, Integer>> getTopPlayers(int limit) {
+        Map<UUID, Integer> allPlayersXP = new HashMap<>();
+        
+        // Добавляем игроков из кэша
+        for (Map.Entry<UUID, PlayerData> entry : cache.entrySet()) {
+            allPlayersXP.put(entry.getKey(), entry.getValue().xp);
+        }
+        
+        // Сортируем по убыванию опыта
+        List<Map.Entry<UUID, Integer>> sorted = new ArrayList<>(allPlayersXP.entrySet());
+        sorted.sort((e1, e2) -> e2.getValue().compareTo(e1.getValue()));
+        
+        // Возвращаем только первые limit элементов
+        return sorted.stream().limit(limit).collect(Collectors.toList());
     }
 
     private static class PlayerData {
