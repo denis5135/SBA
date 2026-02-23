@@ -4,6 +4,7 @@ import io.github.pronze.sba.SBA;
 import io.github.pronze.sba.config.SBAConfig;
 import io.github.pronze.sba.game.ArenaManager;
 import io.github.pronze.sba.game.tasks.GeneratorTask;
+import io.github.pronze.sba.levels.PlayerLevelManager;
 import io.github.pronze.sba.service.PlayerWrapperService;
 import io.github.pronze.sba.utils.Logger;
 import io.github.pronze.sba.wrapper.SBAPlayerWrapper;
@@ -82,6 +83,34 @@ public class SBAExpansion extends PlaceholderExpansion {
             if (player == null) {
                 return "";
             }
+            
+            // ========== ИСПОЛЬЗУЕМ НОВУЮ СИСТЕМУ УРОВНЕЙ ==========
+            PlayerLevelManager levelManager = PlayerLevelManager.getInstance();
+            
+            switch (identifiers[1]) {
+                case "level":
+                case "level_number":
+                    return Integer.toString(levelManager.getPlayerLevel(player));
+                    
+                case "xp":
+                    return Integer.toString(levelManager.getPlayerXP(player));
+                    
+                case "progress":
+                    return Integer.toString((int)(levelManager.getLevelProgress(player) * 100));
+                    
+                case "level_prefix":
+                    return levelManager.getPlayerPrefix(player);
+                    
+                case "level_required":
+                    return Integer.toString(levelManager.getXPToNextLevel(player));
+                    
+                case "level_progress_percent":
+                    double progress = levelManager.getLevelProgress(player);
+                    return Integer.toString((int)(progress * 100));
+            }
+            
+            // ========== СТАРЫЙ КОД (удаляем или комментируем) ==========
+            /*
             final SBAPlayerWrapper database = PlayerWrapperService.getInstance().get(player).orElseThrow();
             
             switch (identifiers[1]) {
@@ -104,6 +133,8 @@ public class SBAExpansion extends PlaceholderExpansion {
                     int percent = (current * 100) / required;
                     return Integer.toString(percent);
             }
+            */
+            
         } else if (identifiers[0].equalsIgnoreCase("game")) {
             if (identifiers.length < 2) return identifier;
             final Game game = identifiers.length == 2 ? Main.getInstance().getGameOfPlayer(player)
