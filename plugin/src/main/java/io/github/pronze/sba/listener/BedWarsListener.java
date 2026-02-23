@@ -150,8 +150,9 @@ public class BedWarsListener implements Listener {
                 .ifPresent(arena -> ((Arena) arena).onOver(e));
         
         // ========== НАЧИСЛЕНИЕ ОПЫТА ЗА ПОБЕДУ ==========
-        // Получаем победившую команду через API
-        var winningTeam = game.getWinningTeam();
+        // Получаем победителя прямо из события
+        Team winningTeam = e.getWinningTeam();
+        
         if (winningTeam != null) {
             int winXP = 50; // опыт за победу
             
@@ -193,6 +194,7 @@ public class BedWarsListener implements Listener {
                 PlayerLevelManager.getInstance().getPlayerPrefix(player));
         }
     }
+    
     public io.github.pronze.sba.party.PartySetting.GameMode gamemodeOf(Player connectedPlayer) {
         AtomicReference<io.github.pronze.sba.party.PartySetting.GameMode> ref = new AtomicReference<>(
                 io.github.pronze.sba.party.PartySetting.GameMode.PUBLIC);
