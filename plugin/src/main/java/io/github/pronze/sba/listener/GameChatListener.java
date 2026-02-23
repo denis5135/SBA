@@ -2,6 +2,7 @@ package io.github.pronze.sba.listener;
 
 import io.github.pronze.sba.wrapper.PlayerSetting;
 import io.github.pronze.sba.wrapper.SBAPlayerWrapper;
+import io.github.pronze.sba.levels.PlayerLevelManager;
 import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -17,6 +18,8 @@ import org.screamingsandals.lib.utils.annotations.Service;
 import org.screamingsandals.lib.utils.annotations.methods.OnPostEnable;
 import io.github.pronze.sba.SBA;
 import io.github.pronze.sba.config.SBAConfig;
+import io.github.pronze.sba.lib.lang.LanguageService;
+import io.github.pronze.sba.MessageKeys;
 
 @Service
 public class GameChatListener implements Listener {
@@ -54,6 +57,12 @@ public class GameChatListener implements Listener {
 
                     boolean all = false;
                     boolean spectator = false;
+                    
+                    // Получаем данные из новой системы уровней
+                    var levelManager = PlayerLevelManager.getInstance();
+                    int playerLevel = levelManager.getPlayerLevel(player);
+                    String playerPrefix = levelManager.getPlayerPrefix(player);
+                    
                     if (bedwarsPlayer.isSpectator) {
                         format = SBAConfig
                                 .getInstance()
@@ -87,7 +96,12 @@ public class GameChatListener implements Listener {
 
                     format = format
                             .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                            .replace("%message%", message);
+                            .replace("%message%", message)
+                            // Добавляем плейсхолдеры уровней
+                            .replace("%level%", String.valueOf(playerLevel))
+                            .replace("%level_prefix%", playerPrefix)
+                            .replace("%level_full%", playerPrefix + " " + playerLevel + "✫");
+                            
                     if (Bukkit.getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) {
                         format = PlaceholderAPI.setPlaceholders(player, format);
                     }
@@ -117,6 +131,12 @@ public class GameChatListener implements Listener {
             } else if (game.getStatus() == GameStatus.WAITING) {
                 if (SBAConfig.getInstance().node("chat-format", "lobby-chat", "enabled").getBoolean()) {
                     event.setCancelled(true);
+                    
+                    // Получаем данные из новой системы уровней
+                    var levelManager = PlayerLevelManager.getInstance();
+                    int playerLevel = levelManager.getPlayerLevel(player);
+                    String playerPrefix = levelManager.getPlayerPrefix(player);
+                    
                     var lobbyChatFormat = SBAConfig
                             .getInstance()
                             .node("chat-format", "lobby-chat", "format")
@@ -128,7 +148,11 @@ public class GameChatListener implements Listener {
                     lobbyChatFormat = lobbyChatFormat
                             .replace("%color%", teamColor == null ? "" : teamColor)
                             .replace("%message%", event.getMessage())
-                            .replace("%player%", player.getDisplayName() + ChatColor.RESET);
+                            .replace("%player%", player.getDisplayName() + ChatColor.RESET)
+                            // Добавляем плейсхолдеры уровней
+                            .replace("%level%", String.valueOf(playerLevel))
+                            .replace("%level_prefix%", playerPrefix)
+                            .replace("%level_full%", playerPrefix + " " + playerLevel + "✫");
 
                     if (Bukkit.getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) {
                         lobbyChatFormat = PlaceholderAPI
