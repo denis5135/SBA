@@ -28,6 +28,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.screamingsandals.bedwars.Main;
+import org.screamingsandals.bedwars.api.Team;
 import org.screamingsandals.bedwars.api.events.*;
 import org.screamingsandals.bedwars.api.game.GameStatus;
 import org.screamingsandals.bedwars.game.Game;
