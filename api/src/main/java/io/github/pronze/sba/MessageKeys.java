@@ -154,6 +154,6 @@ public class MessageKeys {
     public static final String[] SPAWNER_PROTECTION = { "spawner-protection" };
     
     public static final String[] MESSAGE_ARENA_BUSY = {"message-arena-busy"};
-    
+    public static final String[] MAIN_LOBBY_SCOREBOARD_ANIMATED_TITLE = {"main-lobby", "scoreboard", "animated_title"};
 };
 
