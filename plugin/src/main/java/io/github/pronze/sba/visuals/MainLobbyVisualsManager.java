@@ -224,17 +224,18 @@ public class MainLobbyVisualsManager implements Listener {
                     int xpToNext = levelManager.getXPToNextLevel(player);
                     double progress = levelManager.getLevelProgress(player);
 
-                    // Создаём прогресс-бар (10 символов)
-                    int barLength = 10;
+                    // Создаём красивый прогресс-бар (12 символов)
+                    int barLength = 12;
                     int filledBars = (int) Math.round(progress * barLength);
-                    StringBuilder bar = new StringBuilder("§a");
+                    StringBuilder bar = new StringBuilder("§8[");
                     for (int i = 0; i < barLength; i++) {
                         if (i < filledBars) {
-                            bar.append("■");
+                            bar.append("§b▬"); // Голубой для заполненной части
                         } else {
-                            bar.append("§7■");
+                            bar.append("§7▭"); // Серый для пустой части
                         }
                     }
+                    bar.append("§8]");
 
                     final var playerStatistic = Main.getPlayerStatisticsManager().getStatistic(player);
 
@@ -265,9 +266,9 @@ public class MainLobbyVisualsManager implements Listener {
                             .replace("%winrate%", String.format("%.1f", winRate) + "%")
                             // K/D
                             .replace("%kdr%", String.valueOf(playerStatistic.getKD()))
-                            // Привилегия (заглушка)
-                            .replace("%rank%", "&6[VIP]")
-                            .replace("%donate%", "&6[VIP]");
+                            // Привилегия - теперь берём из плейсхолдера, можно заменить на реальную систему
+                            .replace("%rank%", "§6[VIP]")
+                            .replace("%donate%", "§6[VIP]");
                 })
                 .build();
 
