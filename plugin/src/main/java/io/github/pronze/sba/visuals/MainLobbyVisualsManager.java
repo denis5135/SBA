@@ -92,17 +92,26 @@ public class MainLobbyVisualsManager implements Listener {
             return;
 
         final var player = e.getPlayer();
-        final var db = SBA.getInstance().getPlayerWrapperService().get(player).orElseThrow();
 
         if (SBAConfig.getInstance().node("main-lobby", "enabled").getBoolean(false)
                 && MainLobbyVisualsManager.isInWorld(e.getPlayer().getLocation())) {
             if (Main.isPlayerInGame(player))
                 return;
-            var chatFormat = LanguageService.getInstance().get(MessageKeys.MAIN_LOBBY_CHAT_FORMAT).toString();
+            
+            // Используем формат чата из language.yml
+            var chatFormat = LanguageService.getInstance()
+                    .get(MessageKeys.MAIN_LOBBY_CHAT_FORMAT)
+                    .toString();
 
             if (chatFormat != null) {
+                // Получаем уровень из новой системы
+                var levelManager = PlayerLevelManager.getInstance();
+                int playerLevel = levelManager.getPlayerLevel(player);
+                String playerPrefix = levelManager.getPlayerPrefix(player);
+                
                 var format = chatFormat
-                        .replace("%level%", String.valueOf(db.getLevel()))
+                        .replace("%level%", String.valueOf(playerLevel))
+                        .replace("%prefix%", playerPrefix)
                         .replace("%name%", e.getPlayer().getDisplayName() + ChatColor.RESET)
                         .replace("%message%", e.getMessage())
                         .replace("%color%", ShopUtil.ChatColorChanger(e.getPlayer()));
@@ -180,24 +189,32 @@ public class MainLobbyVisualsManager implements Listener {
             playerData.sendPlayerListHeaderFooter(header, footer);
         }
 
-        // Анимированный заголовок "Bedwars"
-        List<String> animatedTitle = new ArrayList<>();
-        animatedTitle.add("&6&lB&e&led&6&lw&e&lar&6&ls");
-        animatedTitle.add("&e&lB&6&led&e&lw&6&lar&e&ls");
-        animatedTitle.add("&6&lBe&e&ldw&6&lar&e&ls");
-        animatedTitle.add("&e&lBed&6&lw&e&lar&e&ls");
-        animatedTitle.add("&6&lBedw&e&lar&6&ls");
-        animatedTitle.add("&e&lBedwa&6&lr&e&ls");
-        animatedTitle.add("&6&lBedwar&e&ls");
-        animatedTitle.add("&e&lBedwars");
+        // Получаем заголовок, анимированный заголовок и строки из language.yml
+        String scoreboardTitle = LanguageService.getInstance()
+                .get(MessageKeys.MAIN_LOBBY_SCOREBOARD_TITLE)
+                .toString();
+        
+        List<String> animatedTitle = LanguageService.getInstance()
+                .get(MessageKeys.MAIN_LOBBY_SCOREBOARD_ANIMATED_TITLE)
+                .toStringList();
+        
+        List<String> scoreboardLines = LanguageService.getInstance()
+                .get(MessageKeys.MAIN_LOBBY_SCOREBOARD_LINES)
+                .toStringList();
+
+        // Если анимированный заголовок пустой или只有一个 элемент, используем обычный
+        if (animatedTitle == null || animatedTitle.isEmpty()) {
+            animatedTitle = new ArrayList<>();
+            animatedTitle.add(scoreboardTitle);
+        }
 
         final var scoreboard = Scoreboard.builder()
                 .animate(true)
                 .player(player)
-                .title(animatedTitle.get(0)) // Обычный заголовок
+                .title(scoreboardTitle) // Используем заголовок из language.yml
                 .displayObjective(MAIN_LOBBY_OBJECTIVE)
                 .updateInterval(20L)
-                .lines(getScoreboardLines())
+                .lines(scoreboardLines) // Используем строки из language.yml
                 .placeholderHook(hook -> {
                     // Используем нашу новую систему уровней
                     var levelManager = PlayerLevelManager.getInstance();
@@ -222,7 +239,7 @@ public class MainLobbyVisualsManager implements Listener {
                     final var playerStatistic = Main.getPlayerStatisticsManager().getStatistic(player);
 
                     // Поражения = всего игр - победы
-                    int totalGames = playerStatistic.getWins() + playerStatistic.getDeaths(); // или другое значение
+                    int totalGames = playerStatistic.getWins() + playerStatistic.getDeaths();
                     int losses = totalGames - playerStatistic.getWins();
                     double winRate = totalGames > 0 ? (double) playerStatistic.getWins() / totalGames * 100 : 0;
 
@@ -233,6 +250,10 @@ public class MainLobbyVisualsManager implements Listener {
                             .replace("%deaths%", String.valueOf(playerStatistic.getDeaths()))
                             // Уровни
                             .replace("%level%", playerPrefix + " " + playerLevel + "✫")
+                            .replace("%sba_player_level_prefix%", playerPrefix)
+                            .replace("%sba_player_level_number%", String.valueOf(playerLevel))
+                            .replace("%sba_player_xp%", String.valueOf(playerXP))
+                            .replace("%sba_player_level_required%", String.valueOf(xpToNext))
                             .replace("%xp%", String.valueOf(playerXP))
                             .replace("%xp_required%", String.valueOf(xpToNext))
                             .replace("%progress%", String.valueOf((int) (progress * 100)) + "%")
@@ -244,46 +265,18 @@ public class MainLobbyVisualsManager implements Listener {
                             .replace("%winrate%", String.format("%.1f", winRate) + "%")
                             // K/D
                             .replace("%kdr%", String.valueOf(playerStatistic.getKD()))
-                            // Привилегия (заглушка, можно заменить на реальную систему доната)
+                            // Привилегия (заглушка)
                             .replace("%rank%", "&6[VIP]")
                             .replace("%donate%", "&6[VIP]");
                 })
                 .build();
 
-        // Устанавливаем анимированный заголовок отдельно
-        scoreboard.setAnimatedTitle(animatedTitle);
+        // Устанавливаем анимированный заголовок из language.yml
+        if (animatedTitle.size() > 1) {
+            scoreboard.setAnimatedTitle(animatedTitle);
+        }
 
         scoreboardMap.put(player, scoreboard);
-    }
-
-    private List<String> getScoreboardLines() {
-        List<String> lines = new ArrayList<>();
-
-        // Твоя привилегия
-        lines.add("&6%rank%");
-        // Пустая строка
-        lines.add("");
-        // Уровень
-        lines.add("&7Уровень: %level%");
-        // Опыт
-        lines.add("&7Опыт: %xp%/%xp_required%");
-        // Прогресс-бар
-        lines.add("%bar%");
-        // Пустая строка
-        lines.add("");
-        // Статистика
-        lines.add("&7Всего убийств: &a%kills%");
-        lines.add("&7Всего побед: &a%wins%");
-        lines.add("&7Всего кроватей: &a%beds%");
-        lines.add("&7У/С: &a%kdr%");
-        lines.add("&7В/П: &a%wins%&7/&c%losses% &8(%winrate%)");
-        lines.add("&7Всего игр: &a%games%");
-        // Пустая строка
-        lines.add("");
-        // Айпи
-        lines.add("&bplay.yourserver.com");
-
-        return lines;
     }
 
     public void remove(Player player) {
