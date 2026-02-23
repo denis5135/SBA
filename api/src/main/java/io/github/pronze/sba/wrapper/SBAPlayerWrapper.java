@@ -5,7 +5,6 @@ import io.github.pronze.sba.AddonAPI;
 import io.github.pronze.sba.MessageKeys;
 import io.github.pronze.sba.Permissions;
 import io.github.pronze.sba.data.ToggleableSetting;
-import io.github.pronze.sba.levels.PlayerLevelManager;
 import lombok.Getter;
 import lombok.Setter;
 import org.screamingsandals.bedwars.Main;
@@ -77,36 +76,27 @@ public class SBAPlayerWrapper extends org.screamingsandals.lib.player.Extendable
         }
     }
 
-    // ========== НОВАЯ СИСТЕМА УРОВНЕЙ ==========
+    // ========== ВРЕМЕННЫЕ МЕТОДЫ (будут заменены плагином) ==========
     
     public int getXP() {
-        return PlayerLevelManager.getInstance().getPlayerXP(getInstance());
+        // Эти методы будут переопределены плагином
+        return 0;
     }
 
     public int getLevel() {
-        return PlayerLevelManager.getInstance().getPlayerLevel(getInstance());
+        return 1;
     }
 
     public String getProgress() {
-        var levelManager = PlayerLevelManager.getInstance();
-        double progress = levelManager.getLevelProgress(getInstance());
-        return String.valueOf((int)(progress * 100)) + "%";
+        return "0%";
     }
 
     public int getIntegerProgress() {
-        var levelManager = PlayerLevelManager.getInstance();
-        double progress = levelManager.getLevelProgress(getInstance());
-        return (int)(progress * 100);
+        return 0;
     }
 
     public String getCompletedBoxes() {
-        int progress = getIntegerProgress();
-        if (progress < 1)
-            progress = 1;
-
-        int numberOfBoxesFilled = progress / 10;
-        return "&7[&b" + Strings.repeat("■", numberOfBoxesFilled)
-                + "§7" + Strings.repeat("■", 10 - numberOfBoxesFilled) + "&7]";
+        return "&7[&b■■■■■■■■■■&7]";
     }
 
     protected static String round(double toRound) {
@@ -123,7 +113,6 @@ public class SBAPlayerWrapper extends org.screamingsandals.lib.player.Extendable
     }
 
     public static int getTotalXPToLevelUp() {
-        // Этот метод больше не используется, оставлен для совместимости
         return 5000;
     }
 
