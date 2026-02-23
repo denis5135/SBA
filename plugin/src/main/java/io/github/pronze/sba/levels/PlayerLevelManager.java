@@ -18,7 +18,8 @@ public class PlayerLevelManager {
     private LevelConfig levelConfig;
 
     private PlayerLevelManager() {
-        dataFile = new File(SBA.getInstance().getDataFolder(), "player-levels.yml");
+        // Исправлено: используем getPluginInstance()
+        dataFile = new File(SBA.getPluginInstance().getDataFolder(), "player-levels.yml");
         levelConfig = LevelConfig.getInstance();
         load();
     }
@@ -57,9 +58,6 @@ public class PlayerLevelManager {
         }
     }
 
-    /**
-     * Получить уровень игрока
-     */
     public int getPlayerLevel(Player player) {
         return getPlayerLevel(player.getUniqueId());
     }
@@ -69,9 +67,6 @@ public class PlayerLevelManager {
         return data.level;
     }
 
-    /**
-     * Получить опыт игрока
-     */
     public int getPlayerXP(Player player) {
         return getPlayerXP(player.getUniqueId());
     }
@@ -81,17 +76,11 @@ public class PlayerLevelManager {
         return data.xp;
     }
 
-    /**
-     * Получить префикс игрока
-     */
     public String getPlayerPrefix(Player player) {
         int level = getPlayerLevel(player);
         return levelConfig.getLevelPrefix(level);
     }
 
-    /**
-     * Добавить опыт игроку
-     */
     public void addXP(Player player, int amount) {
         UUID uuid = player.getUniqueId();
         PlayerData playerData = getPlayerData(uuid);
@@ -99,25 +88,17 @@ public class PlayerLevelManager {
         int oldLevel = playerData.level;
         playerData.xp += amount;
         
-        // Пересчитываем уровень
         playerData.level = levelConfig.getLevelByXP(playerData.xp);
         
-        // Если уровень изменился, можно вызвать событие
         if (playerData.level > oldLevel) {
-            // Здесь можно вызвать кастомное событие для других плагинов
-            // или просто сохранить
             player.sendMessage("§aВы достигли " + playerData.level + " уровня!");
         }
         
-        // Сохраняем в кэш и файл
         cache.put(uuid, playerData);
         data.set(uuid.toString() + ".xp", playerData.xp);
         save();
     }
 
-    /**
-     * Установить опыт игроку
-     */
     public void setXP(Player player, int xp) {
         UUID uuid = player.getUniqueId();
         int level = levelConfig.getLevelByXP(xp);
@@ -127,14 +108,10 @@ public class PlayerLevelManager {
         save();
     }
 
-    /**
-     * Получить опыт до следующего уровня
-     */
     public int getXPToNextLevel(Player player) {
         int currentLevel = getPlayerLevel(player);
         int currentXP = getPlayerXP(player);
         
-        // Если достигнут макс уровень
         if (currentLevel >= levelConfig.getMaxLevel()) {
             return 0;
         }
@@ -143,9 +120,6 @@ public class PlayerLevelManager {
         return Math.max(0, requiredForNext - currentXP);
     }
 
-    /**
-     * Получить прогресс до следующего уровня (0.0 - 1.0)
-     */
     public double getLevelProgress(Player player) {
         int currentLevel = getPlayerLevel(player);
         int currentXP = getPlayerXP(player);
@@ -173,9 +147,6 @@ public class PlayerLevelManager {
         return playerData;
     }
 
-    /**
-     * Загрузить игрока в кэш (при входе)
-     */
     public void loadPlayer(Player player) {
         UUID uuid = player.getUniqueId();
         int xp = data.getInt(uuid.toString() + ".xp", 0);
@@ -183,21 +154,14 @@ public class PlayerLevelManager {
         cache.put(uuid, new PlayerData(xp, level));
     }
 
-    /**
-     * Выгрузить игрока из кэша (при выходе)
-     */
     public void unloadPlayer(Player player) {
         savePlayer(player);
         cache.remove(player.getUniqueId());
     }
 
-    /**
-     * Перезагрузить конфиг уровней
-     */
     public void reloadConfig() {
         levelConfig.reload();
         
-        // Пересчитываем уровни всех игроков в кэше
         for (Map.Entry<UUID, PlayerData> entry : cache.entrySet()) {
             entry.getValue().level = levelConfig.getLevelByXP(entry.getValue().xp);
         }
