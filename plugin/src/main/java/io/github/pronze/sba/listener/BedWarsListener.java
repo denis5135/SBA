@@ -108,6 +108,13 @@ public class BedWarsListener implements Listener {
                 .getInstance()
                 .get(game.getName())
                 .ifPresent(arena -> ((Arena) arena).onTargetBlockDestroyed(e));
+        
+        // ========== ОПЫТ ЗА УНИЧТОЖЕНИЕ КРОВАТИ ==========
+        Player breaker = e.getPlayer();
+        if (breaker != null) {
+            PlayerLevelManager.getInstance().addXP(breaker, 30);
+            breaker.sendMessage("§a✦ Вы получили §e30 опыта §aза уничтожение кровати!");
+        }
     }
 
     @EventHandler
@@ -142,8 +149,44 @@ public class BedWarsListener implements Listener {
                 .get(game.getName())
                 .ifPresent(arena -> ((Arena) arena).onOver(e));
         
-        // TODO: Добавить начисление опыта за победу
-        // Здесь нужно будет определить победившую команду и дать опыт всем её игрокам
+        // ========== НАЧИСЛЕНИЕ ОПЫТА ЗА ПОБЕДУ ==========
+        game.getWinningTeam().ifPresent(team -> {
+            int winXP = 50; // опыт за победу
+            
+            team.getConnectedPlayers().forEach(player -> {
+                int beforeXP = PlayerLevelManager.getInstance().getPlayerXP(player);
+                
+                PlayerLevelManager.getInstance().addXP(player, winXP);
+                
+                int afterXP = PlayerLevelManager.getInstance().getPlayerXP(player);
+                int newLevel = PlayerLevelManager.getInstance().getPlayerLevel(player);
+                
+                player.sendMessage("§a✦ Вы получили §e" + winXP + " опыта §aза победу!");
+                player.sendMessage("§7Прогресс: §b" + beforeXP + " §7→ §b" + afterXP + " опыта");
+                player.sendMessage("§7Текущий уровень: §6" + newLevel + " " + 
+                    PlayerLevelManager.getInstance().getPlayerPrefix(player));
+            });
+        });
+        
+        // ========== ОПЫТ ЗА УЧАСТИЕ ==========
+        game.getConnectedPlayers().forEach(player -> {
+            if (game.getWinningTeam().map(team -> team.isPlayerInTeam(player)).orElse(false)) {
+                return; // победителям уже дали
+            }
+            
+            int participationXP = 10; // опыт за участие
+            int beforeXP = PlayerLevelManager.getInstance().getPlayerXP(player);
+            
+            PlayerLevelManager.getInstance().addXP(player, participationXP);
+            
+            int afterXP = PlayerLevelManager.getInstance().getPlayerXP(player);
+            int newLevel = PlayerLevelManager.getInstance().getPlayerLevel(player);
+            
+            player.sendMessage("§a✦ Вы получили §e" + participationXP + " опыта §aза участие в игре!");
+            player.sendMessage("§7Прогресс: §b" + beforeXP + " §7→ §b" + afterXP + " опыта");
+            player.sendMessage("§7Текущий уровень: §6" + newLevel + " " + 
+                PlayerLevelManager.getInstance().getPlayerPrefix(player));
+        });
     }
 
     public io.github.pronze.sba.party.PartySetting.GameMode gamemodeOf(Player connectedPlayer) {
