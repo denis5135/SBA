@@ -899,8 +899,8 @@ public class SBAConfig implements IConfigurator {
             case "wood": return "stone";
             case "stone": return "iron";
             case "iron": return "diamond";
-            case "normal": return "efficiency2";
-            case "efficiency2": return "efficiency3";
+            case "normal": return "efficiency1";
+            case "efficiency1": return "efficiency2";
             default: return null;
         }
     }
