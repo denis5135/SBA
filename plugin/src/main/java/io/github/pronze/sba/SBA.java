@@ -20,6 +20,7 @@ import io.github.pronze.sba.inventories.GamesInventory;
 import io.github.pronze.sba.inventories.SBAStoreInventoryV2;
 import io.github.pronze.sba.lang.ILanguageService;
 import io.github.pronze.sba.lib.lang.LanguageService;
+import io.github.pronze.sba.levels.LevelListener;
 import io.github.pronze.sba.listener.*;
 import io.github.pronze.sba.manager.IArenaManager;
 import io.github.pronze.sba.manager.IPartyManager;
@@ -230,6 +231,23 @@ public class SBA implements AddonAPI {
 
         HologramManager.setPreferDisplayEntities(Main.getConfigurator().config.getBoolean("prefer-1-19-4-display-entities"));
 
+        // ========== НОВЫЙ КОД: Регистрация системы уровней ==========
+        if (!broken) {
+            try {
+                // Инициализируем систему уровней
+                io.github.pronze.sba.levels.LevelConfig.getInstance();
+                io.github.pronze.sba.levels.PlayerLevelManager.getInstance();
+                
+                // Регистрируем слушатель
+                registerListener(new LevelListener());
+                Logger.info("✅ Level system initialized successfully!");
+            } catch (Exception e) {
+                Logger.error("❌ Failed to initialize level system: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        // ========== КОНЕЦ НОВОГО КОДА ==========
+
         Logger.setMode(Level.WARNING);
         if (!broken) {
             if (citizensFix.canEnable()) {
@@ -273,6 +291,7 @@ public class SBA implements AddonAPI {
             return;
         }
         Bukkit.getServer().getPluginManager().registerEvents(listener, getPluginInstance());
+        registeredListeners.add(listener);
         Logger.trace("Registered listener: {}", listener.getClass().getSimpleName());
     }
 
