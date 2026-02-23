@@ -29,6 +29,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.screamingsandals.bedwars.Main;
 import org.screamingsandals.bedwars.api.Team;
+import org.screamingsandals.bedwars.api.player.BWPlayer;
 import org.screamingsandals.bedwars.api.events.*;
 import org.screamingsandals.bedwars.api.game.GameStatus;
 import org.screamingsandals.bedwars.game.Game;
@@ -158,7 +159,9 @@ public class BedWarsListener implements Listener {
             int winXP = 50; // опыт за победу
             
             // Проходим по всем игрокам победившей команды
-            for (Player player : winningTeam.getConnectedPlayers()) {
+            for (BWPlayer bwPlayer : winningTeam.getPlayers()) {
+                Player player = bwPlayer.as(Player.class); // конвертируем BWPlayer в Player
+                
                 int beforeXP = PlayerLevelManager.getInstance().getPlayerXP(player);
                 
                 PlayerLevelManager.getInstance().addXP(player, winXP);
@@ -177,8 +180,18 @@ public class BedWarsListener implements Listener {
         // Даём опыт всем игрокам, которые не в победившей команде
         for (Player player : game.getConnectedPlayers()) {
             // Пропускаем победителей
-            if (winningTeam != null && winningTeam.isPlayerInTeam(player)) {
-                continue;
+            if (winningTeam != null) {
+                // Проверяем, есть ли игрок в победившей команде
+                boolean isWinner = false;
+                for (BWPlayer bwPlayer : winningTeam.getPlayers()) {
+                    if (bwPlayer.as(Player.class).equals(player)) {
+                        isWinner = true;
+                        break;
+                    }
+                }
+                if (isWinner) {
+                    continue;
+                }
             }
             
             int participationXP = 10; // опыт за участие
@@ -194,16 +207,6 @@ public class BedWarsListener implements Listener {
             player.sendMessage("  §7Текущий уровень: §6" + newLevel + " " + 
                 PlayerLevelManager.getInstance().getPlayerPrefix(player));
         }
-    }
-    
-    public io.github.pronze.sba.party.PartySetting.GameMode gamemodeOf(Player connectedPlayer) {
-        AtomicReference<io.github.pronze.sba.party.PartySetting.GameMode> ref = new AtomicReference<>(
-                io.github.pronze.sba.party.PartySetting.GameMode.PUBLIC);
-        SBA.getInstance().getPartyManager().getPartyOf(SBA.getInstance().getPlayerWrapper(connectedPlayer))
-                .ifPresent(party -> {
-                    ref.set(party.getSettings().getGamemode());
-                });
-        return ref.get();
     }
 
     @EventHandler
