@@ -29,7 +29,6 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.screamingsandals.bedwars.Main;
 import org.screamingsandals.bedwars.api.Team;
-import org.screamingsandals.bedwars.api.player.BWPlayer;
 import org.screamingsandals.bedwars.api.events.*;
 import org.screamingsandals.bedwars.api.game.GameStatus;
 import org.screamingsandals.bedwars.game.Game;
@@ -158,21 +157,23 @@ public class BedWarsListener implements Listener {
         if (winningTeam != null) {
             int winXP = 50; // опыт за победу
             
-            // Проходим по всем игрокам победившей команды
-            for (BWPlayer bwPlayer : winningTeam.getPlayers()) {
-                Player player = bwPlayer.as(Player.class); // конвертируем BWPlayer в Player
-                
-                int beforeXP = PlayerLevelManager.getInstance().getPlayerXP(player);
-                
-                PlayerLevelManager.getInstance().addXP(player, winXP);
-                
-                int afterXP = PlayerLevelManager.getInstance().getPlayerXP(player);
-                int newLevel = PlayerLevelManager.getInstance().getPlayerLevel(player);
-                
-                player.sendMessage("  §a✦ Вы получили §e" + winXP + " опыта §aза победу!");
-                player.sendMessage("  §7Прогресс: §b" + beforeXP + " §7→ §b" + afterXP + " опыта");
-                player.sendMessage("  §7Текущий уровень: §6" + newLevel + " " + 
-                    PlayerLevelManager.getInstance().getPlayerPrefix(player));
+            // Используем getConnectedPlayers() из Game, чтобы получить всех игроков
+            // и потом отфильтровать по команде
+            for (Player player : game.getConnectedPlayers()) {
+                // Проверяем, в победившей ли команде игрок
+                if (winningTeam.isPlayerInTeam(player)) {
+                    int beforeXP = PlayerLevelManager.getInstance().getPlayerXP(player);
+                    
+                    PlayerLevelManager.getInstance().addXP(player, winXP);
+                    
+                    int afterXP = PlayerLevelManager.getInstance().getPlayerXP(player);
+                    int newLevel = PlayerLevelManager.getInstance().getPlayerLevel(player);
+                    
+                    player.sendMessage("  §a✦ Вы получили §e" + winXP + " опыта §aза победу!");
+                    player.sendMessage("  §7Прогресс: §b" + beforeXP + " §7→ §b" + afterXP + " опыта");
+                    player.sendMessage("  §7Текущий уровень: §6" + newLevel + " " + 
+                        PlayerLevelManager.getInstance().getPlayerPrefix(player));
+                }
             }
         }
         
@@ -180,18 +181,8 @@ public class BedWarsListener implements Listener {
         // Даём опыт всем игрокам, которые не в победившей команде
         for (Player player : game.getConnectedPlayers()) {
             // Пропускаем победителей
-            if (winningTeam != null) {
-                // Проверяем, есть ли игрок в победившей команде
-                boolean isWinner = false;
-                for (BWPlayer bwPlayer : winningTeam.getPlayers()) {
-                    if (bwPlayer.as(Player.class).equals(player)) {
-                        isWinner = true;
-                        break;
-                    }
-                }
-                if (isWinner) {
-                    continue;
-                }
+            if (winningTeam != null && winningTeam.isPlayerInTeam(player)) {
+                continue;
             }
             
             int participationXP = 10; // опыт за участие
