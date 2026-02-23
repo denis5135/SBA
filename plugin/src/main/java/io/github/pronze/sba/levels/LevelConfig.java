@@ -19,7 +19,8 @@ public class LevelConfig {
     private int maxLevel = 0;
 
     private LevelConfig() {
-        configFile = new File(SBA.getInstance().getDataFolder(), "levels/levels.yml");
+        // Исправлено: получаем DataFolder через getPluginInstance()
+        configFile = new File(SBA.getPluginInstance().getDataFolder(), "levels/levels.yml");
         reload();
     }
 
@@ -32,7 +33,8 @@ public class LevelConfig {
 
     public void reload() {
         if (!configFile.exists()) {
-            SBA.getInstance().saveResource("levels/levels.yml", false);
+            // Исправлено: saveResource тоже через getPluginInstance()
+            SBA.getPluginInstance().saveResource("levels/levels.yml", false);
         }
         
         config = YamlConfiguration.loadConfiguration(configFile);
@@ -79,7 +81,6 @@ public class LevelConfig {
     private void createDefaultLevels() {
         levels.clear();
         
-        // Старый добрый switch/case для Java 11
         for (int i = 1; i <= 10; i++) {
             String prefix;
             switch (i) {
