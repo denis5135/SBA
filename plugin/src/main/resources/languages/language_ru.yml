@@ -1,7 +1,7 @@
 lang_name: "Russian"
 game-end: "<red><bold>Конец игры</bold></red>"
-# Алмазы - светло-синий (было <aqua>)
-diamond: "<#5555FF><bold>Алмаз</bold></#5555FF>"
+# Алмазы - очень светлый синий
+diamond: "<#AAAAFF><bold>Алмаз</bold></#AAAAFF>"
 emerald: "<green><bold>Изумруд</bold></green>"
 armor: "<gray>броня</gray>"
 sword: "<gray>меч</gray>"
@@ -47,7 +47,7 @@ miner-trap-triggered:
   sub-title: "<yellow>Кто-то зашёл на твою базу!</yellow>"
 blindness-trap-purchased-title: "<gold><bold>Ловушка слепоты куплена!</bold></gold>"
 miner-trap-purchased-title: "<gold><bold>Ловушка замедления куплена!</bold></gold>"
-purchase-heal-pool: "<#5555FF>Исцеление на базе было куплено игроком %player%</#5555FF>"  # Был <aqua>
+purchase-heal-pool: "<#AAAAFF>Исцеление на базе было куплено игроком %player%</#AAAAFF>"
 respawn-title: "<red><bold>ТЫ УМЕР!</bold></red>"
 respawn-message: "<yellow>Ты возродишься через <red>%time% <yellow>секунд</yellow>"
 respawn-subtitle: "<yellow>Ты возродишься через <red>%time% <yellow>секунд</yellow>"
@@ -116,7 +116,7 @@ games-inventory:
     squads-prefix: "<yellow>Bed Wars Сквады</yellow>"
   npc:
     display-name:
-      - "<#5555FF><bold>Bed Wars</bold></#5555FF> <gray>%mode%</gray>"  # Был <aqua>
+      - "<#AAAAFF><bold>Bed Wars</bold></#AAAAFF> <gray>%mode%</gray>"
       - "<yellow><bold>НАЖМИ ЧТОБЫ ИГРАТЬ</bold></yellow>"
 game-start:
   message:
@@ -197,29 +197,34 @@ scoreboard:
       - ""
       - "<yellow>play.BenGangGames.com"
 main-lobby:
-  chat-format: "%color%[%level%✫] %name%: %message%"
-  tablist:
-    header:
-      - "<#5555FF>Ты играешь на</#5555FF> <yellow><bold>play.BenGangGames.com</bold></yellow>"  # Был <aqua>
-    footer:
-      - '<yellow>play.BenGangGames.com</yellow>'
   scoreboard:
-    title: "<yellow>BED WARS</yellow>"
+    title: "<gold><bold>BED WARS</bold></gold>"
+    animated_title:
+      - "&6&lB&e&led&6&lw&e&lar&6&ls"
+      - "&e&lB&6&led&e&lw&6&lar&e&ls"
+      - "&6&lBe&e&ldw&6&lar&e&ls"
+      - "&e&lBed&6&lw&e&lar&e&ls"
+      - "&6&lBedw&e&lar&6&ls"
+      - "&e&lBedwa&6&lr&e&ls"
+      - "&6&lBedwar&e&ls"
+      - "&e&lBedwars"
     lines:
+      - "<gray>» <gold>%rank%</gold> <gray>«</gray>"
       - ""
-      - "<white>Твой уровень: <green>%sba_player_level_prefix% %sba_player_level_number%</green></white>"
-      - ""
-      - "<white>Опыт: <green>%sba_player_xp%<white>/<green>%sba_player_level_required%</green></white>"
+      - "<white>Уровень:</white> <green>%sba_player_level_prefix% %sba_player_level_number%✫</green>"
+      - "<white>Опыт:</white> <green>%sba_player_xp%</green><gray>/</gray><green>%sba_player_level_required%</green>"
       - "%bar%"
       - ""
-      - "<white>Всего убийств: <green>%kills%</green></white>"
-      - "<white>Всего побед: <green>%wins%</green></white>"
+      - "<white>Всего убийств:</white> <aqua>%kills%</aqua>"
+      - "<white>Всего побед:</white> <aqua>%wins%</aqua>"
+      - "<white>Всего кроватей:</white> <aqua>%beds%</aqua>"
+      - "<white>У/С:</white> <aqua>%kdr%</aqua>"
+      - "<white>В/П:</white> <aqua>%wins%<gray>/</gray>%losses%</aqua> <gray>(</gray><yellow>%winrate%</yellow><gray>)</gray>"
+      - "<white>Всего игр:</white> <aqua>%games%</aqua>"
       - ""
-      - "<white>У/С: <gold>%kdr%</gold></white>"
-      - ""
-      - "<yellow>play.BenGangGames.com</yellow>"
+      - "<yellow>play.yourserver.com</yellow>"
 party:
-  chat-format: "<#5555FF>Party </#5555FF><gray>>></gray> %name%<white>: %message%"  # Был <blue>
+  chat-format: "<#AAAAFF>Party </#AAAAFF><gray>>></gray> %name%<white>: %message%"
   message:
     list:
       - "<gold>-----------------------------------------------------"
@@ -385,10 +390,10 @@ party:
 shop:
   npc:
     normal-shop-display-name:
-      - "<#5555FF><bold>Магазин предметов</bold></#5555FF>"  # Был <aqua>
+      - "<#AAAAFF><bold>Магазин предметов</bold></#AAAAFF>"
       - "<yellow><bold>НАЖМИ ПКМ</bold></yellow>"
     upgrade-shop-display-name:
-      - "<#5555FF><bold>Магазин улучшений</bold></#5555FF>"  # Был <aqua>
+      - "<#AAAAFF><bold>Магазин улучшений</bold></#AAAAFF>"
       - "<yellow><bold>НАЖМИ ПКМ</bold></yellow>"
   name: "Магазин"
   page_back: "Предыдущая страница"
@@ -402,7 +407,7 @@ shop:
     - "<gray>Максимальное зачарование</gray>"
     - "<gray>У команды уже максимальное зачарование</gray>"
 death-messages:
-  final-kill: "<#5555FF><bold>ФИНАЛЬНОЕ УБИЙСТВО!</bold></#5555FF>"  # Был <aqua>
+  final-kill: "<#AAAAFF><bold>ФИНАЛЬНОЕ УБИЙСТВО!</bold></#AAAAFF>"
   void-death: "%player% <gray>упал в пустоту</gray>"
   void-kill: "%player% <gray>был сброшен в пустоту игроком %killer%</gray>"
   generic: "%player% <gray>умер</gray>"
@@ -435,10 +440,17 @@ message-arena-busy:
   - "<gold>-----------------------------------------------------"
 
 # ========== СООБЩЕНИЯ ДЛЯ ЛИМИТОВ ==========
-item_limits:
-  single_item: "<red>❌ Ты не можешь купить второй такой предмет!</red>"
-  max_items: "<red>❌ Ты купил максимум этих предметов (%limit% шт.)</red>"
-  cannot_buy: "<red>❌ Этот предмет нельзя купить!</red>"
-
-shop:
-  already_upgraded: "<red>❌ Ты уже купил улучшенную версию!</red>"
+item_limits.single_item: "<red>❌ Ты не можешь купить второй такой предмет!</red>"
+item_limits.max_items: "<red>❌ Ты купил максимум этих предметов (%limit% шт.)</red>"
+item_limits.cannot_buy: "<red>❌ Этот предмет нельзя купить!</red>"
+shop.already_upgraded: "<red>❌ Ты уже купил предмет лучше!</red>"
+chat-format:
+  game-chat:
+    enabled: true
+    format: "<gray>[%team%] %level_full% %color%%player%<white>: %message%"
+    format-spectator: "<gray>[§fSpectator§7] %level_full% %player%<white>: %message%"
+    all-chat-prefix: "@a"
+    all-chat-format: "<gray>[§fALL§7] <gray>[%team%] %level_full% %color%%player%<white>: %message%"
+  lobby-chat:
+    enabled: true
+    format: "%level_full% %color%%player%<white>: %message%"
