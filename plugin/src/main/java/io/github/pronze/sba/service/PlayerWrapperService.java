@@ -5,6 +5,7 @@ import io.github.pronze.sba.events.SBAPlayerWrapperPreUnregisterEvent;
 import io.github.pronze.sba.events.SBAPlayerWrapperRegisteredEvent;
 import io.github.pronze.sba.utils.Logger;
 import io.github.pronze.sba.wrapper.SBAPlayerWrapper;
+import io.github.pronze.sba.wrapper.SBAPluginPlayerWrapper;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.screamingsandals.lib.player.Players;
@@ -32,6 +33,7 @@ public class PlayerWrapperService implements WrapperService<Player, SBAPlayerWra
 
     private final Map<UUID, SBAPlayerWrapper> playerData = new ConcurrentHashMap<>();
     private static boolean init = false;
+    
     @OnPostEnable
     public void registerMapping() {
         if(SBA.isBroken())return;
@@ -40,7 +42,7 @@ public class PlayerWrapperService implements WrapperService<Player, SBAPlayerWra
                     .registerW2P(SBAPlayerWrapper.class, wrapper -> {
                         if (wrapper.getType() == Sender.Type.PLAYER) {
                             if(!playerData.containsKey(wrapper.getUuid())){
-                                var player = wrapper.as(Player.class);// Bukkit.getServer().getPlayer(wrapper.getUuid());
+                                var player = wrapper.as(Player.class);
                                 register(player);
                             }
                             return playerData.get(wrapper.getUuid());
@@ -56,7 +58,8 @@ public class PlayerWrapperService implements WrapperService<Player, SBAPlayerWra
         if (playerData.containsKey(player.getUniqueId())) {
             return;
         }
-        final var playerWrapper = new SBAPlayerWrapper(player);
+        // Используем новый класс вместо SBAPlayerWrapper
+        final var playerWrapper = new SBAPluginPlayerWrapper(player);
         playerData.put(player.getUniqueId(), playerWrapper);
         SBA.getPluginInstance()
                 .getServer()
