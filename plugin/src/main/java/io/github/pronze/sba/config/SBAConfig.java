@@ -3,6 +3,7 @@ package io.github.pronze.sba.config;
 import io.github.pronze.sba.AddonAPI;
 import io.github.pronze.sba.SBA;
 import io.github.pronze.sba.fix.BungeecordNPC;
+import io.github.pronze.sba.levels.LevelConfig;
 import io.github.pronze.sba.utils.FirstStartConfigReplacer;
 import io.github.pronze.sba.utils.Logger;
 import net.md_5.bungee.api.ChatColor;
@@ -50,7 +51,6 @@ public class SBAConfig implements IConfigurator {
     public JavaPlugin plugin;
     public File dataFolder;
     public File langFolder, shopFolder, gamesInventoryFolder, levelsFolder, itemLimitsFolder;
-    public ConfigurationNode levelsNode;
     public ConfigurationNode itemLimitsNode;
 
     private ConfigurationNode configurationNode;
@@ -126,24 +126,6 @@ public class SBAConfig implements IConfigurator {
 
             configurationNode = loader.load();
 
-            // Загружаем levels.yml
-            File levelsFile = new File(levelsFolder, "levels.yml");
-            if (levelsFile.exists()) {
-                try {
-                    YamlConfigurationLoader levelsLoader = YamlConfigurationLoader.builder()
-                        .path(levelsFile.toPath())
-                        .nodeStyle(NodeStyle.BLOCK)
-                        .build();
-                    levelsNode = levelsLoader.load();
-                } catch (ConfigurateException e) {
-                    e.printStackTrace();
-                    levelsNode = null;
-                }
-            } else {
-                levelsNode = null;
-                Logger.warn("levels.yml not found, using default values");
-            }
-            
             // Загружаем item-limits.yml
             File limitsFile = new File(itemLimitsFolder, "item-limits.yml");
             if (limitsFile.exists()) {
@@ -391,9 +373,7 @@ public class SBAConfig implements IConfigurator {
                     .back()
                     .back()
                     .back()
-                    .section("player-statistics")
-                    .key("xp-to-level-up").defValue(5000)
-                    .back()
+                    // УДАЛЕНО: section("player-statistics")
                     .section("npc")
                     .key("enabled").defValue(true)
                     .key("shop-skin").defValue(561657710)
@@ -869,67 +849,24 @@ public class SBAConfig implements IConfigurator {
         return Objects.requireNonNullElse(ItemStackFactory.build(def), ItemStackFactory.getAir());
     }
 
-    // ========== МЕТОДЫ ДЛЯ УРОВНЕЙ ==========
+    // ========== ИСПРАВЛЕННЫЕ МЕТОДЫ ДЛЯ УРОВНЕЙ ==========
+    // Теперь просто передают вызовы в новый LevelConfig
     
     public String getLevelPrefix(int level) {
-        if (levelsNode == null) return "&7[✩]";
-        
-        var prefixes = levelsNode.node("level-system", "prefixes");
-        for (var entry : prefixes.childrenMap().entrySet()) {
-            String range = entry.getKey().toString();
-            String[] parts = range.split("-");
-            int min = Integer.parseInt(parts[0]);
-            int max = Integer.parseInt(parts[1]);
-            
-            if (level >= min && level <= max) {
-                return ChatColor.translateAlternateColorCodes('&', 
-                    entry.getValue().getString("&7[✩]"));
-            }
-        }
-        return "&7[✩]";
+        return LevelConfig.getInstance().getLevelPrefix(level);
     }
 
     public int getRequiredXP(int level) {
-        if (levelsNode == null) {
-            return 1000 + (level - 1) * 500;
-        }
-        
-        int baseXP = levelsNode.node("level-system", "base-xp").getInt(1000);
-        
-        // Находим множитель для данного уровня
-        int multiplier = 500;
-        var multipliers = levelsNode.node("level-system", "multipliers");
-        
-        for (var entry : multipliers.childrenMap().entrySet()) {
-            String range = entry.getKey().toString();
-            String[] parts = range.split("-");
-            int min = Integer.parseInt(parts[0]);
-            int max = Integer.parseInt(parts[1]);
-            
-            if (level >= min && level <= max) {
-                multiplier = entry.getValue().getInt(500);
-                break;
-            }
-        }
-        
-        // Расчёт: baseXP + (level - 1) * multiplier
-        return baseXP + (level - 1) * multiplier;
+        return LevelConfig.getInstance().getRequiredXP(level);
     }
 
+    // Эти методы больше не нужны, но оставляем для обратной совместимости
     public List<String> getLevelRewards(int level) {
-        if (levelsNode == null) return new ArrayList<>();
-        try {
-            return levelsNode.node("level-system", "rewards", String.valueOf(level), "commands")
-                .getList(String.class, new ArrayList<>());
-        } catch (SerializationException e) {
-            e.printStackTrace();
-            return new ArrayList<>();
-        }
+        return new ArrayList<>();
     }
     
     public String getLevelRewardBroadcast(int level) {
-        if (levelsNode == null) return null;
-        return levelsNode.node("level-system", "rewards", String.valueOf(level), "broadcast").getString();
+        return null;
     }
     
     // ========== МЕТОДЫ ДЛЯ ЛИМИТОВ ПРЕДМЕТОВ ==========
