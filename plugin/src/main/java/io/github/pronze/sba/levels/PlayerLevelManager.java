@@ -176,10 +176,13 @@ public class PlayerLevelManager {
     
     /**
      * Получить топ игроков по опыту
-     * @param limit количество игроков в топе
+     * @param limit количество игроков в топе (максимум 20)
      * @return список Map.Entry с UUID и опытом, отсортированный по убыванию опыта
      */
     public List<Map.Entry<UUID, Integer>> getTopPlayers(int limit) {
+        // Ограничиваем максимум 20
+        int maxLimit = Math.min(limit, 20);
+        
         Map<UUID, Integer> allPlayersXP = new HashMap<>();
         
         // Добавляем игроков из кэша
@@ -191,8 +194,8 @@ public class PlayerLevelManager {
         List<Map.Entry<UUID, Integer>> sorted = new ArrayList<>(allPlayersXP.entrySet());
         sorted.sort((e1, e2) -> e2.getValue().compareTo(e1.getValue()));
         
-        // Возвращаем только первые limit элементов
-        return sorted.stream().limit(limit).collect(Collectors.toList());
+        // Возвращаем только первые maxLimit элементов
+        return sorted.stream().limit(maxLimit).collect(Collectors.toList());
     }
 
     private static class PlayerData {
