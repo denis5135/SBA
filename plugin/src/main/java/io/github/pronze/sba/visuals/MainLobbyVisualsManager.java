@@ -20,9 +20,6 @@ import org.screamingsandals.bedwars.Main;
 import org.screamingsandals.bedwars.api.events.BedwarsPlayerJoinedEvent;
 import org.screamingsandals.bedwars.api.events.BedwarsPlayerLeaveEvent;
 import org.screamingsandals.lib.plugin.ServiceManager;
-import org.screamingsandals.lib.tasker.DefaultThreads;
-import org.screamingsandals.lib.tasker.Tasker;
-import org.screamingsandals.lib.tasker.TaskerTime;
 import org.screamingsandals.lib.utils.annotations.Service;
 import org.screamingsandals.lib.utils.annotations.methods.OnPostEnable;
 import org.screamingsandals.lib.utils.annotations.methods.OnPreDisable;
@@ -48,9 +45,9 @@ public class MainLobbyVisualsManager implements Listener {
 
     @OnPostEnable
     public void registerListener() {
-        if(SBA.isBroken())return;
+        if (SBA.isBroken())
+            return;
         SBA.getInstance().registerListener(this);
-
         load();
     }
 
@@ -67,8 +64,8 @@ public class MainLobbyVisualsManager implements Listener {
         enabled = true;
         SBAUtil.readLocationFromConfig("main-lobby").ifPresentOrElse(location -> {
             MainLobbyVisualsManager.location = location;
-            Bukkit.getScheduler().runTaskLater(SBA.getPluginInstance(), () -> Bukkit
-                    .getOnlinePlayers().forEach(this::create), 3L);
+            Bukkit.getScheduler().runTaskLater(SBA.getPluginInstance(),
+                    () -> Bukkit.getOnlinePlayers().forEach(this::create), 3L);
         }, () -> {
             disable();
             Bukkit.getServer().getLogger().warning("Could not find lobby world!");
@@ -101,10 +98,7 @@ public class MainLobbyVisualsManager implements Listener {
                 && MainLobbyVisualsManager.isInWorld(e.getPlayer().getLocation())) {
             if (Main.isPlayerInGame(player))
                 return;
-            var chatFormat = LanguageService
-                    .getInstance()
-                    .get(MessageKeys.MAIN_LOBBY_CHAT_FORMAT)
-                    .toString();
+            var chatFormat = LanguageService.getInstance().get(MessageKeys.MAIN_LOBBY_CHAT_FORMAT).toString();
 
             if (chatFormat != null) {
                 var format = chatFormat
@@ -142,14 +136,13 @@ public class MainLobbyVisualsManager implements Listener {
 
         final var player = e.getPlayer();
 
-        Bukkit.getServer().getScheduler()
-                .runTaskLater(SBA.getPluginInstance(), () -> {
-                    if (hasMainLobbyObjective(player))
-                        return;
-                    if (isInWorld(player.getLocation()) && !Main.isPlayerInGame(player) && player.isOnline()) {
-                        create(player);
-                    }
-                }, 20L);
+        Bukkit.getServer().getScheduler().runTaskLater(SBA.getPluginInstance(), () -> {
+            if (hasMainLobbyObjective(player))
+                return;
+            if (isInWorld(player.getLocation()) && !Main.isPlayerInGame(player) && player.isOnline()) {
+                create(player);
+            }
+        }, 20L);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -176,24 +169,14 @@ public class MainLobbyVisualsManager implements Listener {
         if (!isInWorld(player.getLocation()))
             return;
 
-        final var playerData = SBA
-                .getInstance()
-                .getPlayerWrapperService()
-                .get(player)
-                .orElseThrow();
+        final var playerData = SBA.getInstance().getPlayerWrapperService().get(player).orElseThrow();
 
         if (SBAConfig.getInstance().node("main-lobby", "tablist-modifications").getBoolean()) {
-            var header = LanguageService
-                    .getInstance()
-                    .get(MessageKeys.MAIN_LOBBY_TABLIST_HEADER)
-                    .replace("%sba_version%", SBA.getInstance().getVersion())
-                    .toComponent();
+            var header = LanguageService.getInstance().get(MessageKeys.MAIN_LOBBY_TABLIST_HEADER)
+                    .replace("%sba_version%", SBA.getInstance().getVersion()).toComponent();
 
-            var footer = LanguageService
-                    .getInstance()
-                    .get(MessageKeys.MAIN_LOBBY_TABLIST_FOOTER)
-                    .replace("%sba_version%", SBA.getInstance().getVersion())
-                    .toComponent();
+            var footer = LanguageService.getInstance().get(MessageKeys.MAIN_LOBBY_TABLIST_FOOTER)
+                    .replace("%sba_version%", SBA.getInstance().getVersion()).toComponent();
             playerData.sendPlayerListHeaderFooter(header, footer);
         }
 
@@ -208,13 +191,8 @@ public class MainLobbyVisualsManager implements Listener {
         animatedTitle.add("&6&lBedwar&e&ls");
         animatedTitle.add("&e&lBedwars");
 
-        final var scoreboard = Scoreboard.builder()
-                .animate(true)
-                .player(player)
-                .title(animatedTitle)
-                .displayObjective(MAIN_LOBBY_OBJECTIVE)
-                .updateInterval(20L)
-                .lines(getScoreboardLines())
+        final var scoreboard = Scoreboard.builder().animate(true).player(player).title(animatedTitle)
+                .displayObjective(MAIN_LOBBY_OBJECTIVE).updateInterval(20L).lines(getScoreboardLines())
                 .placeholderHook(hook -> {
                     // Используем нашу новую систему уровней
                     var levelManager = PlayerLevelManager.getInstance();
@@ -223,7 +201,7 @@ public class MainLobbyVisualsManager implements Listener {
                     int playerXP = levelManager.getPlayerXP(player);
                     int xpToNext = levelManager.getXPToNextLevel(player);
                     double progress = levelManager.getLevelProgress(player);
-                    
+
                     // Создаём прогресс-бар (10 символов)
                     int barLength = 10;
                     int filledBars = (int) Math.round(progress * barLength);
@@ -235,16 +213,13 @@ public class MainLobbyVisualsManager implements Listener {
                             bar.append("§7■");
                         }
                     }
-                    
-                    final var playerStatistic = Main
-                            .getPlayerStatisticsManager()
-                            .getStatistic(player);
-                            
+
+                    final var playerStatistic = Main.getPlayerStatisticsManager().getStatistic(player);
+
                     int totalGames = playerStatistic.getWins() + playerStatistic.getLosses();
                     double winRate = totalGames > 0 ? (double) playerStatistic.getWins() / totalGames * 100 : 0;
 
-                    return hook
-                            .getLine()
+                    return hook.getLine()
                             .replace("%sba_version%", SBA.getInstance().getVersion())
                             .replace("%kills%", String.valueOf(playerStatistic.getKills()))
                             .replace("%beds%", String.valueOf(playerStatistic.getDestroyedBeds()))
@@ -253,7 +228,7 @@ public class MainLobbyVisualsManager implements Listener {
                             .replace("%level%", playerPrefix + " " + playerLevel + "✫")
                             .replace("%xp%", String.valueOf(playerXP))
                             .replace("%xp_required%", String.valueOf(xpToNext))
-                            .replace("%progress%", String.valueOf((int)(progress * 100)) + "%")
+                            .replace("%progress%", String.valueOf((int) (progress * 100)) + "%")
                             .replace("%bar%", bar.toString())
                             // Победы/поражения
                             .replace("%wins%", String.valueOf(playerStatistic.getWins()))
@@ -272,7 +247,7 @@ public class MainLobbyVisualsManager implements Listener {
 
     private List<String> getScoreboardLines() {
         List<String> lines = new ArrayList<>();
-        
+
         // Твоя привилегия
         lines.add("&6%rank%");
         // Пустая строка
@@ -296,7 +271,7 @@ public class MainLobbyVisualsManager implements Listener {
         lines.add("");
         // Айпи
         lines.add("&bplay.yourserver.com");
-        
+
         return lines;
     }
 
