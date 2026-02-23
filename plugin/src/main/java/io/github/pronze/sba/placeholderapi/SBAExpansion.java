@@ -10,10 +10,13 @@ import io.github.pronze.sba.utils.Logger;
 import io.github.pronze.sba.wrapper.SBAPlayerWrapper;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.screamingsandals.bedwars.Main;
 import org.screamingsandals.bedwars.api.game.Game;
+
+import java.util.UUID;
 
 public class SBAExpansion extends PlaceholderExpansion {
     @Override
@@ -46,6 +49,11 @@ public class SBAExpansion extends PlaceholderExpansion {
         %sba_player_level_number%
         %sba_player_level_required%
         %sba_player_level_progress_percent%
+        
+        %sba_top_name_<position>%
+        %sba_top_level_<position>%
+        %sba_top_xp_<position>%
+        %sba_top_prefix_<position>%
     
         %sba_game_status%
         %sba_game_tier%
@@ -109,31 +117,41 @@ public class SBAExpansion extends PlaceholderExpansion {
                     return Integer.toString((int)(progress * 100));
             }
             
-            // ========== СТАРЫЙ КОД (удаляем или комментируем) ==========
-            /*
-            final SBAPlayerWrapper database = PlayerWrapperService.getInstance().get(player).orElseThrow();
+        } else if (identifiers[0].equalsIgnoreCase("top")) {
+            if (identifiers.length < 3) return null;
             
-            switch (identifiers[1]) {
-                case "level":
-                    return Integer.toString(database.getLevel());
-                case "xp":
-                    return Integer.toString(database.getXP());
-                case "progress":
-                    return Integer.toString(database.getIntegerProgress());
-                case "level_prefix":
-                    return SBAConfig.getInstance().getLevelPrefix(database.getLevel());
-                case "level_number":
-                    return Integer.toString(database.getLevel());
-                case "level_required":
-                    int nextLevel = database.getLevel() + 1;
-                    return Integer.toString(SBAConfig.getInstance().getRequiredXP(nextLevel));
-                case "level_progress_percent":
-                    int current = database.getXP();
-                    int required = SBAConfig.getInstance().getRequiredXP(database.getLevel() + 1);
-                    int percent = (current * 100) / required;
-                    return Integer.toString(percent);
+            try {
+                String type = identifiers[1]; // name, level, xp, prefix
+                int position = Integer.parseInt(identifiers[2]); // 1, 2, 3, etc.
+                
+                PlayerLevelManager levelManager = PlayerLevelManager.getInstance();
+                var topPlayers = levelManager.getTopPlayers(10); // получаем топ-10
+                
+                if (position > topPlayers.size()) {
+                    return "Н/Д";
+                }
+                
+                var entry = topPlayers.get(position - 1); // позиции с 1
+                UUID uuid = entry.getKey();
+                int xpValue = entry.getValue();
+                
+                // Пытаемся получить имя игрока (если он онлайн)
+                Player topPlayer = Bukkit.getPlayer(uuid);
+                String playerName = topPlayer != null ? topPlayer.getName() : "Неизвестно";
+                
+                switch (type) {
+                    case "name":
+                        return playerName;
+                    case "level":
+                        return String.valueOf(levelManager.getPlayerLevel(uuid));
+                    case "xp":
+                        return String.valueOf(xpValue);
+                    case "prefix":
+                        return levelManager.getPlayerPrefix(uuid);
+                }
+            } catch (NumberFormatException e) {
+                return null;
             }
-            */
             
         } else if (identifiers[0].equalsIgnoreCase("game")) {
             if (identifiers.length < 2) return identifier;
