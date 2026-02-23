@@ -154,12 +154,30 @@ public class BedWarsListener implements Listener {
         if (winningTeam != null) {
             int winXP = 50; // опыт за победу
             
-            // Проходим по всем игрокам игры и проверяем, в победившей ли они команде
-            for (Player player : game.getConnectedPlayers()) {
-                // Проверяем, в победившей ли команде игрок
-                if (winningTeam.getPlayers().stream()
-                        .anyMatch(p -> p.getUuid().equals(player.getUniqueId()))) {
-                    
+            // Получаем всех игроков в победившей команде
+            for (Object bwPlayerObj : winningTeam.getPlayers()) {
+                // Пробуем разные способы получить Player
+                Player player = null;
+                
+                // Способ 1: если BWPlayer имеет метод getPlayer()
+                try {
+                    player = (Player) bwPlayerObj.getClass().getMethod("getPlayer").invoke(bwPlayerObj);
+                } catch (Exception ignored) {}
+                
+                // Способ 2: если это сам Player
+                if (player == null && bwPlayerObj instanceof Player) {
+                    player = (Player) bwPlayerObj;
+                }
+                
+                // Способ 3: через UUID (если есть метод getUuid())
+                if (player == null) {
+                    try {
+                        UUID uuid = (UUID) bwPlayerObj.getClass().getMethod("getUuid").invoke(bwPlayerObj);
+                        player = Bukkit.getPlayer(uuid);
+                    } catch (Exception ignored) {}
+                }
+                
+                if (player != null && player.isOnline()) {
                     int beforeXP = PlayerLevelManager.getInstance().getPlayerXP(player);
                     
                     PlayerLevelManager.getInstance().addXP(player, winXP);
@@ -179,10 +197,27 @@ public class BedWarsListener implements Listener {
         // Даём опыт всем игрокам, которые не в победившей команде
         for (Player player : game.getConnectedPlayers()) {
             // Пропускаем победителей
-            if (winningTeam != null && 
-                winningTeam.getPlayers().stream()
-                    .anyMatch(p -> p.getUuid().equals(player.getUniqueId()))) {
-                continue;
+            if (winningTeam != null) {
+                boolean isWinner = false;
+                for (Object bwPlayerObj : winningTeam.getPlayers()) {
+                    Player winnerPlayer = null;
+                    
+                    try {
+                        winnerPlayer = (Player) bwPlayerObj.getClass().getMethod("getPlayer").invoke(bwPlayerObj);
+                    } catch (Exception ignored) {}
+                    
+                    if (winnerPlayer == null && bwPlayerObj instanceof Player) {
+                        winnerPlayer = (Player) bwPlayerObj;
+                    }
+                    
+                    if (winnerPlayer != null && winnerPlayer.equals(player)) {
+                        isWinner = true;
+                        break;
+                    }
+                }
+                if (isWinner) {
+                    continue;
+                }
             }
             
             int participationXP = 10; // опыт за участие
@@ -198,16 +233,6 @@ public class BedWarsListener implements Listener {
             player.sendMessage("  §7Текущий уровень: §6" + newLevel + " " + 
                 PlayerLevelManager.getInstance().getPlayerPrefix(player));
         }
-    }
-
-    private io.github.pronze.sba.party.PartySetting.GameMode gamemodeOf(Player connectedPlayer) {
-        AtomicReference<io.github.pronze.sba.party.PartySetting.GameMode> ref = new AtomicReference<>(
-                io.github.pronze.sba.party.PartySetting.GameMode.PUBLIC);
-        SBA.getInstance().getPartyManager().getPartyOf(SBA.getInstance().getPlayerWrapper(connectedPlayer))
-                .ifPresent(party -> {
-                    ref.set(party.getSettings().getGamemode());
-                });
-        return ref.get();
     }
 
     @EventHandler
