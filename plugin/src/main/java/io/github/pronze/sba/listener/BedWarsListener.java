@@ -142,7 +142,7 @@ public class BedWarsListener implements Listener {
     @EventHandler
     public void onOver(BedwarsGameEndingEvent e) {
         Logger.trace("SBA onOver{}", e);
-
+    
         final var game = e.getGame();
         ArenaManager
                 .getInstance()
@@ -150,10 +150,13 @@ public class BedWarsListener implements Listener {
                 .ifPresent(arena -> ((Arena) arena).onOver(e));
         
         // ========== НАЧИСЛЕНИЕ ОПЫТА ЗА ПОБЕДУ ==========
-        game.getWinningTeam().ifPresent(team -> {
+        // Получаем победившую команду через API
+        var winningTeam = game.getWinningTeam();
+        if (winningTeam != null) {
             int winXP = 50; // опыт за победу
             
-            team.getConnectedPlayers().forEach(player -> {
+            // Проходим по всем игрокам победившей команды
+            for (Player player : winningTeam.getConnectedPlayers()) {
                 int beforeXP = PlayerLevelManager.getInstance().getPlayerXP(player);
                 
                 PlayerLevelManager.getInstance().addXP(player, winXP);
@@ -161,17 +164,19 @@ public class BedWarsListener implements Listener {
                 int afterXP = PlayerLevelManager.getInstance().getPlayerXP(player);
                 int newLevel = PlayerLevelManager.getInstance().getPlayerLevel(player);
                 
-                player.sendMessage("§a✦ Вы получили §e" + winXP + " опыта §aза победу!");
-                player.sendMessage("§7Прогресс: §b" + beforeXP + " §7→ §b" + afterXP + " опыта");
-                player.sendMessage("§7Текущий уровень: §6" + newLevel + " " + 
+                player.sendMessage("  §a✦ Вы получили §e" + winXP + " опыта §aза победу!");
+                player.sendMessage("  §7Прогресс: §b" + beforeXP + " §7→ §b" + afterXP + " опыта");
+                player.sendMessage("  §7Текущий уровень: §6" + newLevel + " " + 
                     PlayerLevelManager.getInstance().getPlayerPrefix(player));
-            });
-        });
+            }
+        }
         
         // ========== ОПЫТ ЗА УЧАСТИЕ ==========
-        game.getConnectedPlayers().forEach(player -> {
-            if (game.getWinningTeam().map(team -> team.isPlayerInTeam(player)).orElse(false)) {
-                return; // победителям уже дали
+        // Даём опыт всем игрокам, которые не в победившей команде
+        for (Player player : game.getConnectedPlayers()) {
+            // Пропускаем победителей
+            if (winningTeam != null && winningTeam.isPlayerInTeam(player)) {
+                continue;
             }
             
             int participationXP = 10; // опыт за участие
@@ -182,13 +187,12 @@ public class BedWarsListener implements Listener {
             int afterXP = PlayerLevelManager.getInstance().getPlayerXP(player);
             int newLevel = PlayerLevelManager.getInstance().getPlayerLevel(player);
             
-            player.sendMessage("§a✦ Вы получили §e" + participationXP + " опыта §aза участие в игре!");
-            player.sendMessage("§7Прогресс: §b" + beforeXP + " §7→ §b" + afterXP + " опыта");
-            player.sendMessage("§7Текущий уровень: §6" + newLevel + " " + 
+            player.sendMessage("  §a✦ Вы получили §e" + participationXP + " опыта §aза участие в игре!");
+            player.sendMessage("  §7Прогресс: §b" + beforeXP + " §7→ §b" + afterXP + " опыта");
+            player.sendMessage("  §7Текущий уровень: §6" + newLevel + " " + 
                 PlayerLevelManager.getInstance().getPlayerPrefix(player));
-        });
+        }
     }
-
     public io.github.pronze.sba.party.PartySetting.GameMode gamemodeOf(Player connectedPlayer) {
         AtomicReference<io.github.pronze.sba.party.PartySetting.GameMode> ref = new AtomicReference<>(
                 io.github.pronze.sba.party.PartySetting.GameMode.PUBLIC);
