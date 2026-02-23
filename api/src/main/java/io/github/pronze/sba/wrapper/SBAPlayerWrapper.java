@@ -5,6 +5,7 @@ import io.github.pronze.sba.AddonAPI;
 import io.github.pronze.sba.MessageKeys;
 import io.github.pronze.sba.Permissions;
 import io.github.pronze.sba.data.ToggleableSetting;
+import io.github.pronze.sba.levels.PlayerLevelManager;
 import lombok.Getter;
 import lombok.Setter;
 import org.screamingsandals.bedwars.Main;
@@ -76,47 +77,26 @@ public class SBAPlayerWrapper extends org.screamingsandals.lib.player.Extendable
         }
     }
 
+    // ========== НОВАЯ СИСТЕМА УРОВНЕЙ ==========
+    
     public int getXP() {
-        var statistic = Main
-                .getPlayerStatisticsManager()
-                .getStatistic(this.getInstance());
-
-        if (statistic == null) {
-            statistic = Main.getPlayerStatisticsManager().loadStatistic(getUuid());
-            if (statistic != null) {
-                return statistic.getScore();
-            }
-            return 1;
-        }
-        return statistic.getScore();
+        return PlayerLevelManager.getInstance().getPlayerXP(getInstance());
     }
 
     public int getLevel() {
-        var xp = getXP();
-        if (xp < getTotalXPToLevelUp()) {
-            return 1;
-        }
-        return 1 + (xp / getTotalXPToLevelUp());
+        return PlayerLevelManager.getInstance().getPlayerLevel(getInstance());
     }
 
     public String getProgress() {
-        var maxLimit  = getTotalXPToLevelUp();
-
-        final var format = AddonAPI
-                .getInstance()
-                .getConfigurator()
-                .getString("main-lobby.progress-format", "§b%progress%§7/§a%total%")
-                .replace("%total%", round(maxLimit));
-
-        int progress = getXP() - ((getLevel() - 1) * maxLimit);
-        if (progress <= 0) {
-            progress = 0;
-        }
-        return format.replace("%progress%", round(progress));
+        var levelManager = PlayerLevelManager.getInstance();
+        double progress = levelManager.getLevelProgress(getInstance());
+        return String.valueOf((int)(progress * 100)) + "%";
     }
 
     public int getIntegerProgress() {
-        return (int)(((getXP() - ((getLevel() - 1) * getTotalXPToLevelUp())) / (double)getTotalXPToLevelUp()) * 100);
+        var levelManager = PlayerLevelManager.getInstance();
+        double progress = levelManager.getLevelProgress(getInstance());
+        return (int)(progress * 100);
     }
 
     public String getCompletedBoxes() {
@@ -143,10 +123,8 @@ public class SBAPlayerWrapper extends org.screamingsandals.lib.player.Extendable
     }
 
     public static int getTotalXPToLevelUp() {
-        return AddonAPI
-                .getInstance()
-                .getConfigurator()
-                .getInt("player-statistics.xp-to-level-up", 5000);
+        // Этот метод больше не используется, оставлен для совместимости
+        return 5000;
     }
 
     protected static int getDefaultShoutCoolDownTime() {
