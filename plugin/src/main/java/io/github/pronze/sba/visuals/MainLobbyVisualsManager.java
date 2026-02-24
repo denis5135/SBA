@@ -172,6 +172,17 @@ public class MainLobbyVisualsManager implements Listener {
         remove(e.getPlayer());
     }
 
+    private String formatNumber(int number) {
+        if (number >= 1_000_000) {
+            double millions = number / 1_000_000.0;
+            return String.format("%.1fM", millions);
+        } else if (number >= 1_000) {
+            double thousands = number / 1_000.0;
+            return String.format("%.1fk", thousands);
+        }
+        return String.valueOf(number);
+    }
+
     public void create(Player player) {
         if (!enabled)
             return;
@@ -224,15 +235,15 @@ public class MainLobbyVisualsManager implements Listener {
                     int xpToNext = levelManager.getXPToNextLevel(player);
                     double progress = levelManager.getLevelProgress(player);
 
-                    // Создаём красивый прогресс-бар (12 символов)
+                    // Создаём красивый прогресс-бар (12 квадратов)
                     int barLength = 12;
                     int filledBars = (int) Math.round(progress * barLength);
                     StringBuilder bar = new StringBuilder("§8[");
                     for (int i = 0; i < barLength; i++) {
                         if (i < filledBars) {
-                            bar.append("§b▬"); // Голубой для заполненной части
+                            bar.append("§b■"); // Голубой квадрат для заполненной части
                         } else {
-                            bar.append("§7▭"); // Серый для пустой части
+                            bar.append("§7■"); // Серый квадрат для пустой части
                         }
                     }
                     bar.append("§8]");
@@ -244,29 +255,37 @@ public class MainLobbyVisualsManager implements Listener {
                     int losses = totalGames - playerStatistic.getWins();
                     double winRate = totalGames > 0 ? (double) playerStatistic.getWins() / totalGames * 100 : 0;
 
+                    // Форматируем числа
+                    String formattedXP = formatNumber(playerXP);
+                    String formattedRequired = formatNumber(xpToNext);
+                    String formattedKills = formatNumber(playerStatistic.getKills());
+                    String formattedWins = formatNumber(playerStatistic.getWins());
+                    String formattedBeds = formatNumber(playerStatistic.getDestroyedBeds());
+                    String formattedGames = formatNumber(totalGames);
+
                     return hook.getLine()
                             .replace("%sba_version%", SBA.getInstance().getVersion())
-                            .replace("%kills%", String.valueOf(playerStatistic.getKills()))
-                            .replace("%beds%", String.valueOf(playerStatistic.getDestroyedBeds()))
+                            .replace("%kills%", formattedKills)
+                            .replace("%beds%", formattedBeds)
                             .replace("%deaths%", String.valueOf(playerStatistic.getDeaths()))
                             // Уровни
                             .replace("%level%", playerPrefix + " " + playerLevel + "✫")
                             .replace("%sba_player_level_prefix%", playerPrefix)
                             .replace("%sba_player_level_number%", String.valueOf(playerLevel))
-                            .replace("%sba_player_xp%", String.valueOf(playerXP))
-                            .replace("%sba_player_level_required%", String.valueOf(xpToNext))
-                            .replace("%xp%", String.valueOf(playerXP))
-                            .replace("%xp_required%", String.valueOf(xpToNext))
+                            .replace("%sba_player_xp%", formattedXP)
+                            .replace("%sba_player_level_required%", formattedRequired)
+                            .replace("%xp%", formattedXP)
+                            .replace("%xp_required%", formattedRequired)
                             .replace("%progress%", String.valueOf((int) (progress * 100)) + "%")
                             .replace("%bar%", bar.toString())
                             // Победы/поражения
-                            .replace("%wins%", String.valueOf(playerStatistic.getWins()))
+                            .replace("%wins%", formattedWins)
                             .replace("%losses%", String.valueOf(losses))
-                            .replace("%games%", String.valueOf(totalGames))
+                            .replace("%games%", formattedGames)
                             .replace("%winrate%", String.format("%.1f", winRate) + "%")
                             // K/D
                             .replace("%kdr%", String.valueOf(playerStatistic.getKD()))
-                            // Привилегия - теперь берём из плейсхолдера, можно заменить на реальную систему
+                            // Привилегия
                             .replace("%rank%", "§6[VIP]")
                             .replace("%donate%", "§6[VIP]");
                 })
