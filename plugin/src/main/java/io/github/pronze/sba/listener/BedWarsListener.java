@@ -111,7 +111,10 @@ public class BedWarsListener implements Listener {
         // ========== ОПЫТ ЗА УНИЧТОЖЕНИЕ КРОВАТИ ==========
         Player breaker = e.getPlayer();
         if (breaker != null) {
+            // Начисляем опыт в нашу систему
             PlayerLevelManager.getInstance().addXP(breaker, 30);
+            // Синхронизируем с BedWars Score
+            Main.getPlayerStatisticsManager().getStatistic(breaker).addScore(30);
             breaker.sendMessage("§a✦ Вы получили §e30 опыта §aза уничтожение кровати!");
         }
     }
@@ -161,7 +164,10 @@ public class BedWarsListener implements Listener {
                 if (playerTeam != null && playerTeam.equals(winningTeam)) {
                     int beforeXP = PlayerLevelManager.getInstance().getPlayerXP(player);
                     
+                    // Начисляем опыт в нашу систему
                     PlayerLevelManager.getInstance().addXP(player, winXP);
+                    // Синхронизируем с BedWars Score
+                    Main.getPlayerStatisticsManager().getStatistic(player).addScore(winXP);
                     
                     int afterXP = PlayerLevelManager.getInstance().getPlayerXP(player);
                     int newLevel = PlayerLevelManager.getInstance().getPlayerLevel(player);
@@ -188,7 +194,10 @@ public class BedWarsListener implements Listener {
             int participationXP = 10; // опыт за участие
             int beforeXP = PlayerLevelManager.getInstance().getPlayerXP(player);
             
+            // Начисляем опыт в нашу систему
             PlayerLevelManager.getInstance().addXP(player, participationXP);
+            // Синхронизируем с BedWars Score
+            Main.getPlayerStatisticsManager().getStatistic(player).addScore(participationXP);
             
             int afterXP = PlayerLevelManager.getInstance().getPlayerXP(player);
             int newLevel = PlayerLevelManager.getInstance().getPlayerLevel(player);
@@ -717,6 +726,8 @@ public class BedWarsListener implements Listener {
                                         // ========== НАЧИСЛЕНИЕ ОПЫТА ==========
                                         // Базовый опыт за убийство
                                         PlayerLevelManager.getInstance().addXP(killer, 10);
+                                        // Синхронизируем с BedWars Score
+                                        Main.getPlayerStatisticsManager().getStatistic(killer).addScore(10);
                                         
                                         if (!victimTeam.isAlive()) {
                                             // increment final kill counter for killer
@@ -724,6 +735,8 @@ public class BedWarsListener implements Listener {
                                             
                                             // Дополнительный опыт за финальное убийство
                                             PlayerLevelManager.getInstance().addXP(killer, 20);
+                                            // Синхронизируем с BedWars Score
+                                            Main.getPlayerStatisticsManager().getStatistic(killer).addScore(20);
                                             
                                             Bukkit.getPluginManager()
                                                     .callEvent(new SBAFinalKillEvent(game, victim, killer));
