@@ -220,8 +220,14 @@ public class MainLobbyVisualsManager implements Listener {
             String[] ver = version.split("\\.");
             int major = Integer.parseInt(ver[0]);
             int minor = Integer.parseInt(ver[1]);
-            return major == 1 && minor <= 12; // 1.8.x - 1.12.x
+            
+            // Лог для отладки
+            boolean legacy = major == 1 && minor <= 12;
+            Logger.info("Player version detected: " + version + " | Legacy: " + legacy);
+            
+            return legacy;
         } catch (Exception e) {
+            Logger.error("Error detecting version: " + e.getMessage());
             return false;
         }
     }
@@ -230,7 +236,7 @@ public class MainLobbyVisualsManager implements Listener {
         if (isLegacyVersion()) {
             return 8; // Для 1.8.x - 1.12.x - 8 квадратиков
         } else {
-            return 16; // Для 1.13+ - 16 квадратиков
+            return 12; // Для 1.13+ - 12 квадратиков
         }
     }
 
@@ -279,35 +285,6 @@ public class MainLobbyVisualsManager implements Listener {
                 );
             }
         }
-    }
-
-    private void startAutoUpdate(Player player) {
-        // Отменяем старую задачу если есть
-        BukkitTask oldTask = updateTasks.remove(player);
-        if (oldTask != null && !oldTask.isCancelled()) {
-            oldTask.cancel();
-        }
-
-        // Создаём новую задачу обновления
-        BukkitTask task = Bukkit.getScheduler().runTaskTimer(SBA.getPluginInstance(), () -> {
-            try {
-                if (!player.isOnline() || !isInWorld(player.getLocation()) || Main.isPlayerInGame(player)) {
-                    return;
-                }
-                
-                Scoreboard board = scoreboardMap.get(player);
-                if (board != null) {
-                    board.refresh(); // Обновляем скорборд
-                } else {
-                    // Если скорборд пропал, создаём заново
-                    create(player);
-                }
-            } catch (Exception e) {
-                Logger.error("Error updating scoreboard for " + player.getName() + ": " + e.getMessage());
-            }
-        }, 100L, 100L); // Обновление каждые 5 секунд (100 тиков)
-
-        updateTasks.put(player, task);
     }
 
     public void create(Player player) {
@@ -379,7 +356,7 @@ public class MainLobbyVisualsManager implements Listener {
                             int xpToNext = levelManager.getXPToNextLevel(player);
                             double progress = levelManager.getLevelProgress(player);
 
-                            // Адаптивный прогресс-бар (8 для старых, 16 для новых)
+                            // Адаптивный прогресс-бар (8 для старых, 12 для новых)
                             int barLength = getBarLength();
                             int filledBars = (int) Math.round(progress * barLength);
                             StringBuilder bar = new StringBuilder("§8[");
@@ -479,6 +456,35 @@ public class MainLobbyVisualsManager implements Listener {
         } catch (Exception e) {
             Logger.error("Failed to create scoreboard for player " + player.getName() + ": " + e.getMessage());
         }
+    }
+
+    private void startAutoUpdate(Player player) {
+        // Отменяем старую задачу если есть
+        BukkitTask oldTask = updateTasks.remove(player);
+        if (oldTask != null && !oldTask.isCancelled()) {
+            oldTask.cancel();
+        }
+
+        // Создаём новую задачу обновления
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(SBA.getPluginInstance(), () -> {
+            try {
+                if (!player.isOnline() || !isInWorld(player.getLocation()) || Main.isPlayerInGame(player)) {
+                    return;
+                }
+                
+                Scoreboard board = scoreboardMap.get(player);
+                if (board != null) {
+                    board.refresh(); // Обновляем скорборд
+                } else {
+                    // Если скорборд пропал, создаём заново
+                    create(player);
+                }
+            } catch (Exception e) {
+                Logger.error("Error updating scoreboard for " + player.getName() + ": " + e.getMessage());
+            }
+        }, 100L, 100L); // Обновление каждые 5 секунд (100 тиков)
+
+        updateTasks.put(player, task);
     }
 
     public void remove(Player player) {
