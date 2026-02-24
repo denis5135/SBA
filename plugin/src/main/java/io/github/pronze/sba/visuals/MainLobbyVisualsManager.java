@@ -154,7 +154,8 @@ public class MainLobbyVisualsManager implements Listener {
             }
             updateTasks.clear();
             
-            Set.copyOf(scoreboardMap.keySet()).forEach(this::remove);
+            // Безопасно удаляем все скорборды
+            new ArrayList<>(scoreboardMap.keySet()).forEach(this::remove);
             scoreboardMap.clear();
         } catch (Exception e) {
             Logger.error("Error disabling MainLobbyVisualsManager: " + e.getMessage());
@@ -238,59 +239,93 @@ public class MainLobbyVisualsManager implements Listener {
         }
     }
 
-    private int getBarLength() {
-        if (isLegacyVersion()) {
-            return 8; // Для 1.8.x - 1.12.x - 8 квадратиков
-        } else {
-            return 12; // Для 1.13+ - 12 квадратиков
+    // Создаёт бар для старых версий (8 квадратов)
+    private String createLegacyBar(double progress) {
+        int barLength = 8;
+        int filledBars = (int) Math.round(progress * barLength);
+        StringBuilder bar = new StringBuilder("§8[");
+        for (int i = 0; i < barLength; i++) {
+            if (i < filledBars) {
+                bar.append("§b■");
+            } else {
+                bar.append("§7■");
+            }
         }
+        bar.append("§8]");
+        return bar.toString();
+    }
+
+    // Создаёт бар для новых версий (12 квадратов)
+    private String createModernBar(double progress) {
+        int barLength = 12;
+        int filledBars = (int) Math.round(progress * barLength);
+        StringBuilder bar = new StringBuilder("§8[");
+        for (int i = 0; i < barLength; i++) {
+            if (i < filledBars) {
+                bar.append("§b■");
+            } else {
+                bar.append("§7■");
+            }
+        }
+        bar.append("§8]");
+        return bar.toString();
     }
 
     private List<String> getScoreboardLines(Player player) {
-        if (isLegacyVersion()) {
-            // Для 1.8.x - 1.12.x - компактные строки
+        // Для всех версий используем один языковой файл
+        try {
+            return LanguageService.getInstance()
+                    .get(MessageKeys.MAIN_LOBBY_SCOREBOARD_LINES)
+                    .toStringList();
+        } catch (Exception e) {
+            Logger.error("Failed to load scoreboard lines from language file: " + e.getMessage());
+            // Возвращаем дефолтные строки
             return Arrays.asList(
-                "§8» §6%rank% §8«",
+                "<gray>» <gold>%rank%</gold> <gray>«</gray>",
                 "",
-                "§fУровень: §a%sba_player_level_number%",
-                "§fXP: §a%xp%§8/§a%req%",
+                "<white>Уровень:</white> <green>%sba_player_level_prefix% %sba_player_level_number%</green>",
+                "<white>Опыт:</white> <green>%sba_player_xp%</green><gray>/</gray><green>%sba_player_level_required%</green>",
                 "%bar%",
                 "",
-                "§fУбийств: §a%kills%",
-                "§fПобед: §a%wins%",
-                "§fКроватей: §a%beds%",
-                "§fK/D: §a%kdr%",
-                "§fW/L: §a%wins%§8/§a%losses%",
+                "<white>Всего Убийств:</white> <green>%kills%</green>",
+                "<white>Всего Побед:</white> <green>%wins%</green>",
+                "<white>Сломано Кроватей:</white> <green>%beds%</green>",
+                "<white>Убийства/Смерти:</white> <green>%kdr%</green>",
+                "<white>Выигрыши/Поражения:</white> <green>%wins%</green><gray>/</gray><green>%losses%</green> <gray>(</gray><yellow>%winrate%</yellow><gray>)</gray>",
+                "<white>Игр сыграно:</white> <green>%games%</green>",
                 "",
-                "§eplay.yourserver.com"
+                "<yellow>play.BenGangGames.com</yellow>"
             );
-        } else {
-            // Для новых версий - из language.yml
-            try {
-                return LanguageService.getInstance()
-                        .get(MessageKeys.MAIN_LOBBY_SCOREBOARD_LINES)
-                        .toStringList();
-            } catch (Exception e) {
-                Logger.error("Failed to load scoreboard lines from language file: " + e.getMessage());
-                // Возвращаем дефолтные строки
-                return Arrays.asList(
-                    "<gray>» <gold>%rank%</gold> <gray>«</gray>",
-                    "",
-                    "<white>Уровень:</white> <green>%sba_player_level_prefix% %sba_player_level_number%</green>",
-                    "<white>Опыт:</white> <green>%sba_player_xp%</green><gray>/</gray><green>%sba_player_level_required%</green>",
-                    "%bar%",
-                    "",
-                    "<white>Всего Убийств:</white> <green>%kills%</green>",
-                    "<white>Всего Побед:</white> <green>%wins%</green>",
-                    "<white>Сломано Кроватей:</white> <green>%beds%</green>",
-                    "<white>Убийства/Смерти:</white> <green>%kdr%</green>",
-                    "<white>Выигрыши/Поражения:</white> <green>%wins%</green><gray>/</gray><green>%losses%</green> <gray>(</gray><yellow>%winrate%</yellow><gray>)</gray>",
-                    "<white>Игр сыграно:</white> <green>%games%</green>",
-                    "",
-                    "<yellow>play.BenGangGames.com</yellow>"
-                );
-            }
         }
+    }
+
+    private void startAutoUpdate(Player player) {
+        // Отменяем старую задачу если есть
+        BukkitTask oldTask = updateTasks.remove(player);
+        if (oldTask != null && !oldTask.isCancelled()) {
+            oldTask.cancel();
+        }
+
+        // Создаём новую задачу обновления
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(SBA.getPluginInstance(), () -> {
+            try {
+                if (!player.isOnline() || !isInWorld(player.getLocation()) || Main.isPlayerInGame(player)) {
+                    return;
+                }
+                
+                Scoreboard board = scoreboardMap.get(player);
+                if (board != null) {
+                    board.refresh(); // Обновляем скорборд
+                } else {
+                    // Если скорборд пропал, создаём заново
+                    create(player);
+                }
+            } catch (Exception e) {
+                Logger.error("Error updating scoreboard for " + player.getName() + ": " + e.getMessage());
+            }
+        }, 100L, 100L); // Обновление каждые 5 секунд (100 тиков)
+
+        updateTasks.put(player, task);
     }
 
     public void create(Player player) {
@@ -362,18 +397,9 @@ public class MainLobbyVisualsManager implements Listener {
                             int xpToNext = levelManager.getXPToNextLevel(player);
                             double progress = levelManager.getLevelProgress(player);
 
-                            // Адаптивный прогресс-бар (8 для старых, 12 для новых)
-                            int barLength = getBarLength();
-                            int filledBars = (int) Math.round(progress * barLength);
-                            StringBuilder bar = new StringBuilder("§8[");
-                            for (int i = 0; i < barLength; i++) {
-                                if (i < filledBars) {
-                                    bar.append("§b■");
-                                } else {
-                                    bar.append("§7■");
-                                }
-                            }
-                            bar.append("§8]");
+                            // Создаём два варианта бара
+                            String barLegacy = createLegacyBar(progress); // 8 квадратов
+                            String barModern = createModernBar(progress); // 12 квадратов
 
                             final var playerStatistic = Main.getPlayerStatisticsManager().getStatistic(player);
                             if (playerStatistic == null) {
@@ -393,7 +419,8 @@ public class MainLobbyVisualsManager implements Listener {
                                         .replace("%xp%", formatNumber(playerXP))
                                         .replace("%req%", formatNumber(xpToNext))
                                         .replace("%progress%", String.valueOf((int) (progress * 100)) + "%")
-                                        .replace("%bar%", bar.toString())
+                                        .replace("%bar%", barModern)
+                                        .replace("%bar_legacy%", barLegacy)
                                         .replace("%rank%", "§6[VIP]");
                             }
 
@@ -427,7 +454,8 @@ public class MainLobbyVisualsManager implements Listener {
                                     .replace("%req%", formattedRequired)
                                     .replace("%xp_required%", formattedRequired)
                                     .replace("%progress%", String.valueOf((int) (progress * 100)) + "%")
-                                    .replace("%bar%", bar.toString())
+                                    .replace("%bar%", barModern)          // стандартный бар (12 квадратов)
+                                    .replace("%bar_legacy%", barLegacy)   // бар для старых версий (8 квадратов)
                                     // Победы/поражения
                                     .replace("%wins%", formattedWins)
                                     .replace("%losses%", formattedLosses)
@@ -464,35 +492,6 @@ public class MainLobbyVisualsManager implements Listener {
         }
     }
 
-    private void startAutoUpdate(Player player) {
-        // Отменяем старую задачу если есть
-        BukkitTask oldTask = updateTasks.remove(player);
-        if (oldTask != null && !oldTask.isCancelled()) {
-            oldTask.cancel();
-        }
-
-        // Создаём новую задачу обновления
-        BukkitTask task = Bukkit.getScheduler().runTaskTimer(SBA.getPluginInstance(), () -> {
-            try {
-                if (!player.isOnline() || !isInWorld(player.getLocation()) || Main.isPlayerInGame(player)) {
-                    return;
-                }
-                
-                Scoreboard board = scoreboardMap.get(player);
-                if (board != null) {
-                    board.refresh(); // Обновляем скорборд
-                } else {
-                    // Если скорборд пропал, создаём заново
-                    create(player);
-                }
-            } catch (Exception e) {
-                Logger.error("Error updating scoreboard for " + player.getName() + ": " + e.getMessage());
-            }
-        }, 100L, 100L); // Обновление каждые 5 секунд (100 тиков)
-
-        updateTasks.put(player, task);
-    }
-
     public void remove(Player player) {
         if (player == null)
             return;
@@ -508,23 +507,19 @@ public class MainLobbyVisualsManager implements Listener {
                 try {
                     scoreboard.destroy();
                 } catch (Exception e) {
-                    Logger.error("Error destroying scoreboard for " + player.getName() + ": " + e.getMessage());
+                    // Игнорируем - скорборд уже мог быть уничтожен
                 }
             }
-            if (hasMainLobbyObjective(player)) {
-                try {
+            
+            // Сбрасываем скорборд игрока на основной
+            try {
+                if (player.isOnline()) {
                     player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
-                } catch (Exception e) {
-                    Logger.error("Error resetting scoreboard for " + player.getName() + ": " + e.getMessage());
                 }
+            } catch (Exception e) {
+                // Игнорируем
             }
-            if (SBAConfig.getInstance().node("main-lobby", "tablist-modifications").getBoolean()) {
-                try {
-                    Players.wrapPlayer(player).sendPlayerListHeaderFooter(Component.empty(), Component.empty());
-                } catch (Exception e) {
-                    Logger.error("Error clearing tablist for " + player.getName() + ": " + e.getMessage());
-                }
-            }
+            
         } catch (Exception e) {
             Logger.error("Error removing player " + player.getName() + " from scoreboard: " + e.getMessage());
         }
