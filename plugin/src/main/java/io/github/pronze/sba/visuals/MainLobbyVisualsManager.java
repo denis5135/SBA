@@ -332,15 +332,15 @@ public class MainLobbyVisualsManager implements Listener {
                             int xpToNext = levelManager.getXPToNextLevel(player);
                             double progress = levelManager.getLevelProgress(player);
 
-                            // Адаптивный прогресс-бар (10 для 1.8.9, 12 для новых версий)
-                            int barLength = isLegacyVersion() ? 10 : 12;
+                            // ВСЕГДА 10 квадратиков для всех версий
+                            int barLength = 10;
                             int filledBars = (int) Math.round(progress * barLength);
                             StringBuilder bar = new StringBuilder("§8[");
                             for (int i = 0; i < barLength; i++) {
                                 if (i < filledBars) {
-                                    bar.append("§b■");
+                                    bar.append("§b■"); // Голубой для заполненной части
                                 } else {
-                                    bar.append("§7■");
+                                    bar.append("§7■"); // Серый для пустой части
                                 }
                             }
                             bar.append("§8]");
