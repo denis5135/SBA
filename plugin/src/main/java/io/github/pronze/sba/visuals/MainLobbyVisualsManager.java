@@ -16,6 +16,7 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.scheduler.BukkitTask;
 import org.screamingsandals.bedwars.Main;
 import org.screamingsandals.bedwars.api.events.BedwarsPlayerJoinedEvent;
 import org.screamingsandals.bedwars.api.events.BedwarsPlayerLeaveEvent;
@@ -38,6 +39,7 @@ public class MainLobbyVisualsManager implements Listener {
     private final static String MAIN_LOBBY_OBJECTIVE = "sbascoreboard";
     private static Location location;
     private final Map<Player, Scoreboard> scoreboardMap = new HashMap<>();
+    private final Map<Player, BukkitTask> updateTasks = new HashMap<>();
     private boolean enabled;
 
     public static MainLobbyVisualsManager getInstance() {
@@ -143,6 +145,14 @@ public class MainLobbyVisualsManager implements Listener {
     @OnPreDisable
     public void disable() {
         try {
+            // Отменяем все задачи обновления
+            for (BukkitTask task : updateTasks.values()) {
+                if (task != null && !task.isCancelled()) {
+                    task.cancel();
+                }
+            }
+            updateTasks.clear();
+            
             Set.copyOf(scoreboardMap.keySet()).forEach(this::remove);
             scoreboardMap.clear();
         } catch (Exception e) {
@@ -216,9 +226,17 @@ public class MainLobbyVisualsManager implements Listener {
         }
     }
 
+    private int getBarLength() {
+        if (isLegacyVersion()) {
+            return 8; // Для 1.8.x - 1.12.x - 8 квадратиков
+        } else {
+            return 16; // Для 1.13+ - 16 квадратиков
+        }
+    }
+
     private List<String> getScoreboardLines(Player player) {
         if (isLegacyVersion()) {
-            // Для 1.8.9 - компактные строки
+            // Для 1.8.x - 1.12.x - компактные строки
             return Arrays.asList(
                 "§8» §6%rank% §8«",
                 "",
@@ -261,6 +279,35 @@ public class MainLobbyVisualsManager implements Listener {
                 );
             }
         }
+    }
+
+    private void startAutoUpdate(Player player) {
+        // Отменяем старую задачу если есть
+        BukkitTask oldTask = updateTasks.remove(player);
+        if (oldTask != null && !oldTask.isCancelled()) {
+            oldTask.cancel();
+        }
+
+        // Создаём новую задачу обновления
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(SBA.getPluginInstance(), () -> {
+            try {
+                if (!player.isOnline() || !isInWorld(player.getLocation()) || Main.isPlayerInGame(player)) {
+                    return;
+                }
+                
+                Scoreboard board = scoreboardMap.get(player);
+                if (board != null) {
+                    board.refresh(); // Обновляем скорборд
+                } else {
+                    // Если скорборд пропал, создаём заново
+                    create(player);
+                }
+            } catch (Exception e) {
+                Logger.error("Error updating scoreboard for " + player.getName() + ": " + e.getMessage());
+            }
+        }, 100L, 100L); // Обновление каждые 5 секунд (100 тиков)
+
+        updateTasks.put(player, task);
     }
 
     public void create(Player player) {
@@ -332,15 +379,15 @@ public class MainLobbyVisualsManager implements Listener {
                             int xpToNext = levelManager.getXPToNextLevel(player);
                             double progress = levelManager.getLevelProgress(player);
 
-                            // ВСЕГДА 10 квадратиков для всех версий
-                            int barLength = 10;
+                            // Адаптивный прогресс-бар (8 для старых, 16 для новых)
+                            int barLength = getBarLength();
                             int filledBars = (int) Math.round(progress * barLength);
                             StringBuilder bar = new StringBuilder("§8[");
                             for (int i = 0; i < barLength; i++) {
                                 if (i < filledBars) {
-                                    bar.append("§b■"); // Голубой для заполненной части
+                                    bar.append("§b■");
                                 } else {
-                                    bar.append("§7■"); // Серый для пустой части
+                                    bar.append("§7■");
                                 }
                             }
                             bar.append("§8]");
@@ -426,6 +473,9 @@ public class MainLobbyVisualsManager implements Listener {
 
             scoreboardMap.put(player, scoreboard);
             
+            // Запускаем автообновление
+            startAutoUpdate(player);
+            
         } catch (Exception e) {
             Logger.error("Failed to create scoreboard for player " + player.getName() + ": " + e.getMessage());
         }
@@ -435,6 +485,12 @@ public class MainLobbyVisualsManager implements Listener {
         if (player == null)
             return;
         try {
+            // Отменяем задачу обновления
+            BukkitTask task = updateTasks.remove(player);
+            if (task != null && !task.isCancelled()) {
+                task.cancel();
+            }
+            
             final var scoreboard = scoreboardMap.remove(player);
             if (scoreboard != null) {
                 try {
