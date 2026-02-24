@@ -183,6 +183,53 @@ public class MainLobbyVisualsManager implements Listener {
         return String.valueOf(number);
     }
 
+    private boolean isLegacyVersion() {
+        String version = Bukkit.getBukkitVersion().split("-")[0];
+        String[] ver = version.split("\\.");
+        int major = Integer.parseInt(ver[0]);
+        int minor = Integer.parseInt(ver[1]);
+        return major == 1 && minor <= 12; // 1.8.x - 1.12.x
+    }
+
+    private List<String> getScoreboardLines(Player player) {
+        if (isLegacyVersion()) {
+            // Для 1.8.9 - компактные строки
+            return Arrays.asList(
+                "§8» §6%rank% §8«",
+                "",
+                "§fУровень: §a%sba_player_level_number%",
+                "§fXP: §a%xp%§8/§a%req%",
+                "%bar%",
+                "",
+                "§fУбийств: §a%kills%",
+                "§fПобед: §a%wins%",
+                "§fКроватей: §a%beds%",
+                "§fK/D: §a%kdr%",
+                "§fW/L: §a%wins%§8/§a%losses%",
+                "",
+                "§eplay.yourserver.com"
+            );
+        } else {
+            // Для новых версий - твои строки из конфига
+            return Arrays.asList(
+                "<gray>» <gold>%rank%</gold> <gray>«</gray>",
+                "",
+                "<white>Уровень:</white> <green>%sba_player_level_prefix% %sba_player_level_number%</green>",
+                "<white>Опыт:</white> <green>%sba_player_xp%</green><gray>/</gray><green>%sba_player_level_required%</green>",
+                "%bar%",
+                "",
+                "<white>Всего Убийств:</white> <green>%kills%</green>",
+                "<white>Всего Побед:</white> <green>%wins%</green>",
+                "<white>Сломано Кроватей:</white> <green>%beds%</green>",
+                "<white>Убийства/Смерти:</white> <green>%kdr%</green>",
+                "<white>Выигрыши/Поражения:</white> <green>%wins%</green><gray>/</gray><green>%losses%</green> <gray>(</gray><yellow>%winrate%</yellow><gray>)</gray>",
+                "<white>Игр сыграно:</white> <green>%games%</green>",
+                "",
+                "<yellow>play.BenGangGames.com</yellow>"
+            );
+        }
+    }
+
     public void create(Player player) {
         if (!enabled)
             return;
@@ -200,7 +247,7 @@ public class MainLobbyVisualsManager implements Listener {
             playerData.sendPlayerListHeaderFooter(header, footer);
         }
 
-        // Получаем заголовок, анимированный заголовок и строки из language.yml
+        // Получаем заголовок и анимацию из language.yml
         String scoreboardTitle = LanguageService.getInstance()
                 .get(MessageKeys.MAIN_LOBBY_SCOREBOARD_TITLE)
                 .toString();
@@ -208,24 +255,23 @@ public class MainLobbyVisualsManager implements Listener {
         List<String> animatedTitle = LanguageService.getInstance()
                 .get(MessageKeys.MAIN_LOBBY_SCOREBOARD_ANIMATED_TITLE)
                 .toStringList();
-        
-        List<String> scoreboardLines = LanguageService.getInstance()
-                .get(MessageKeys.MAIN_LOBBY_SCOREBOARD_LINES)
-                .toStringList();
 
-        // Если анимированный заголовок пустой или只有一个 элемент, используем обычный
+        // Если анимированный заголовок пустой, используем обычный
         if (animatedTitle == null || animatedTitle.isEmpty()) {
             animatedTitle = new ArrayList<>();
             animatedTitle.add(scoreboardTitle);
         }
 
+        // Получаем строки для текущей версии
+        List<String> scoreboardLines = getScoreboardLines(player);
+
         final var scoreboard = Scoreboard.builder()
                 .animate(true)
                 .player(player)
-                .title(scoreboardTitle) // Используем заголовок из language.yml
+                .title(scoreboardTitle)
                 .displayObjective(MAIN_LOBBY_OBJECTIVE)
                 .updateInterval(20L)
-                .lines(scoreboardLines) // Используем строки из language.yml
+                .lines(scoreboardLines)
                 .placeholderHook(hook -> {
                     // Используем нашу новую систему уровней
                     var levelManager = PlayerLevelManager.getInstance();
@@ -235,15 +281,15 @@ public class MainLobbyVisualsManager implements Listener {
                     int xpToNext = levelManager.getXPToNextLevel(player);
                     double progress = levelManager.getLevelProgress(player);
 
-                    // Создаём красивый прогресс-бар (12 квадратов)
-                    int barLength = 12;
+                    // Адаптивный прогресс-бар (10 для 1.8.9, 12 для новых версий)
+                    int barLength = isLegacyVersion() ? 10 : 12;
                     int filledBars = (int) Math.round(progress * barLength);
                     StringBuilder bar = new StringBuilder("§8[");
                     for (int i = 0; i < barLength; i++) {
                         if (i < filledBars) {
-                            bar.append("§b■"); // Голубой квадрат для заполненной части
+                            bar.append("§b■");
                         } else {
-                            bar.append("§7■"); // Серый квадрат для пустой части
+                            bar.append("§7■");
                         }
                     }
                     bar.append("§8]");
@@ -261,6 +307,7 @@ public class MainLobbyVisualsManager implements Listener {
                     String formattedKills = formatNumber(playerStatistic.getKills());
                     String formattedWins = formatNumber(playerStatistic.getWins());
                     String formattedBeds = formatNumber(playerStatistic.getDestroyedBeds());
+                    String formattedLosses = formatNumber(losses);
                     String formattedGames = formatNumber(totalGames);
 
                     return hook.getLine()
@@ -275,12 +322,13 @@ public class MainLobbyVisualsManager implements Listener {
                             .replace("%sba_player_xp%", formattedXP)
                             .replace("%sba_player_level_required%", formattedRequired)
                             .replace("%xp%", formattedXP)
+                            .replace("%req%", formattedRequired)
                             .replace("%xp_required%", formattedRequired)
                             .replace("%progress%", String.valueOf((int) (progress * 100)) + "%")
                             .replace("%bar%", bar.toString())
                             // Победы/поражения
                             .replace("%wins%", formattedWins)
-                            .replace("%losses%", String.valueOf(losses))
+                            .replace("%losses%", formattedLosses)
                             .replace("%games%", formattedGames)
                             .replace("%winrate%", String.format("%.1f", winRate) + "%")
                             // K/D
@@ -291,7 +339,7 @@ public class MainLobbyVisualsManager implements Listener {
                 })
                 .build();
 
-        // Устанавливаем анимированный заголовок из language.yml
+        // Устанавливаем анимированный заголовок
         if (animatedTitle.size() > 1) {
             scoreboard.setAnimatedTitle(animatedTitle);
         }
