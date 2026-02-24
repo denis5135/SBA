@@ -41,6 +41,7 @@ public class MainLobbyVisualsManager implements Listener {
     private final Map<Player, Scoreboard> scoreboardMap = new HashMap<>();
     private final Map<Player, BukkitTask> updateTasks = new HashMap<>();
     private boolean enabled;
+    private boolean debugMode = false; // Включи в true только для отладки
 
     public static MainLobbyVisualsManager getInstance() {
         return ServiceManager.get(MainLobbyVisualsManager.class);
@@ -221,13 +222,18 @@ public class MainLobbyVisualsManager implements Listener {
             int major = Integer.parseInt(ver[0]);
             int minor = Integer.parseInt(ver[1]);
             
-            // Лог для отладки
             boolean legacy = major == 1 && minor <= 12;
-            Logger.info("Player version detected: " + version + " | Legacy: " + legacy);
+            
+            // Отладка только если включен режим
+            if (debugMode) {
+                Logger.info("Player version detected: " + version + " | Legacy: " + legacy);
+            }
             
             return legacy;
         } catch (Exception e) {
-            Logger.error("Error detecting version: " + e.getMessage());
+            if (debugMode) {
+                Logger.error("Error detecting version: " + e.getMessage());
+            }
             return false;
         }
     }
