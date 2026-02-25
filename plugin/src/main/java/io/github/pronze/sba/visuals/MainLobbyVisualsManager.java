@@ -300,28 +300,52 @@ public class MainLobbyVisualsManager implements Listener {
     }
 
     private void startAutoUpdate(Player player) {
+        if (player == null) return;
+        
         // Отменяем старую задачу если есть
         BukkitTask oldTask = updateTasks.remove(player);
-        if (oldTask != null && !oldTask.isCancelled()) {
-            oldTask.cancel();
+        if (oldTask != null) {
+            try {
+                if (!oldTask.isCancelled()) {
+                    oldTask.cancel();
+                }
+            } catch (Exception e) {
+                // Игнорируем ошибки при отмене
+            }
         }
 
         // Создаём новую задачу обновления
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(SBA.getPluginInstance(), () -> {
             try {
-                if (!player.isOnline() || !isInWorld(player.getLocation()) || Main.isPlayerInGame(player)) {
+                // Проверяем, что игрок всё ещё валиден
+                if (player == null || !player.isOnline()) {
+                    // Игрок вышел - удаляем задачу
+                    BukkitTask t = updateTasks.remove(player);
+                    if (t != null && !t.isCancelled()) {
+                        t.cancel();
+                    }
                     return;
+                }
+                
+                if (!isInWorld(player.getLocation()) || Main.isPlayerInGame(player)) {
+                    return; // Игрок не в лобби - пропускаем обновление
                 }
                 
                 Scoreboard board = scoreboardMap.get(player);
                 if (board != null) {
-                    board.refresh(); // Обновляем скорборд
+                    try {
+                        board.refresh(); // Обновляем скорборд
+                    } catch (Exception e) {
+                        // Ошибка при обновлении - удаляем скорборд
+                        Logger.error("Error refreshing scoreboard for " + player.getName() + ": " + e.getMessage());
+                        remove(player);
+                    }
                 } else {
                     // Если скорборд пропал, создаём заново
                     create(player);
                 }
             } catch (Exception e) {
-                Logger.error("Error updating scoreboard for " + player.getName() + ": " + e.getMessage());
+                Logger.error("Error in auto-update for " + (player != null ? player.getName() : "null") + ": " + e.getMessage());
             }
         }, 100L, 100L); // Обновление каждые 5 секунд (100 тиков)
 
@@ -330,6 +354,8 @@ public class MainLobbyVisualsManager implements Listener {
 
     public void create(Player player) {
         if (!enabled)
+            return;
+        if (player == null || !player.isOnline())
             return;
         if (!isInWorld(player.getLocation()))
             return;
@@ -495,17 +521,25 @@ public class MainLobbyVisualsManager implements Listener {
     public void remove(Player player) {
         if (player == null)
             return;
+            
         try {
             // Отменяем задачу обновления
             BukkitTask task = updateTasks.remove(player);
-            if (task != null && !task.isCancelled()) {
-                task.cancel();
+            if (task != null) {
+                try {
+                    if (!task.isCancelled()) {
+                        task.cancel();
+                    }
+                } catch (Exception e) {
+                    // Игнорируем ошибки при отмене
+                }
             }
             
-            final var scoreboard = scoreboardMap.remove(player);
-            if (scoreboard != null) {
+            // Удаляем скорборд
+            Scoreboard board = scoreboardMap.remove(player);
+            if (board != null) {
                 try {
-                    scoreboard.destroy();
+                    board.destroy();
                 } catch (Exception e) {
                     // Игнорируем - скорборд уже мог быть уничтожен
                 }
@@ -536,14 +570,18 @@ public class MainLobbyVisualsManager implements Listener {
         final var player = e.getPlayer();
         if (!enabled)
             return;
-        // Небольшая задержка перед созданием скорборда после выхода из игры
+            
+        // Сначала удаляем старый скорборд
+        remove(player);
+        
+        // Потом создаём новый с задержкой
         Bukkit.getScheduler().runTaskLater(SBA.getPluginInstance(), () -> {
             try {
-                if (player.isOnline() && isInWorld(player.getLocation()) && !Main.isPlayerInGame(player)) {
+                if (player != null && player.isOnline() && isInWorld(player.getLocation()) && !Main.isPlayerInGame(player)) {
                     create(player);
                 }
             } catch (Exception ex) {
-                Logger.error("Error recreating scoreboard for " + player.getName() + ": " + ex.getMessage());
+                Logger.error("Error recreating scoreboard for " + (player != null ? player.getName() : "null") + ": " + ex.getMessage());
             }
         }, 20L);
     }
