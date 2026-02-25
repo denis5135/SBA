@@ -542,4 +542,26 @@ public abstract class AbstractStoreInventory implements IStoreInventory, Listene
 
     @NotNull
     public abstract InventorySetBuilder getInventorySetBuilder();
+    
+    // ===== НОВЫЕ АБСТРАКТНЫЕ МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ НАСТРОЕК МАГАЗИНА =====
+    
+    public abstract boolean isUpgradeShop();
+    
+    public abstract int getShopRows();
+    
+    public abstract int getShopRenderActualRows();
+    
+    public abstract int getShopRenderOffset();
+    
+    public abstract int getShopRenderHeaderStart();
+    
+    public abstract int getShopRenderFooterStart();
+    
+    public abstract int getShopItemsOnRow();
+    
+    public abstract String getShopBack();
+    
+    public abstract String getShopPageBack();
+    
+    public abstract String getShopPageForward();
 }
