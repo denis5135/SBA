@@ -672,47 +672,85 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
     
     @Override
     public int getShopRows() {
-        return SBAConfig.getInstance().getUpgradeShopRows();
+        // Прямое обращение к узлу конфига для магазина улучшений
+        ConfigurationNode node = SBAConfig.getInstance().node("shop", "upgrade-shop", "rows");
+        if (!node.virtual()) {
+            return node.getInt();
+        }
+        // Если нет отдельной настройки, используем значение по умолчанию 3
+        return 3;
     }
     
     @Override
     public int getShopRenderActualRows() {
-        return SBAConfig.getInstance().getUpgradeShopRenderActualRows();
+        ConfigurationNode node = SBAConfig.getInstance().node("shop", "upgrade-shop", "render-actual-rows");
+        if (!node.virtual()) {
+            return node.getInt();
+        }
+        return 3;
     }
     
     @Override
     public int getShopRenderOffset() {
-        return SBAConfig.getInstance().getUpgradeShopRenderOffset();
+        ConfigurationNode node = SBAConfig.getInstance().node("shop", "upgrade-shop", "render-offset");
+        if (!node.virtual()) {
+            return node.getInt();
+        }
+        return SBAConfig.getInstance().node("shop", "render-offset").getInt(0);
     }
     
     @Override
     public int getShopRenderHeaderStart() {
-        return SBAConfig.getInstance().getUpgradeShopRenderHeaderStart();
+        ConfigurationNode node = SBAConfig.getInstance().node("shop", "upgrade-shop", "render-header-start");
+        if (!node.virtual()) {
+            return node.getInt();
+        }
+        return SBAConfig.getInstance().node("shop", "render-header-start").getInt(9);
     }
     
     @Override
     public int getShopRenderFooterStart() {
-        return SBAConfig.getInstance().getUpgradeShopRenderFooterStart();
+        ConfigurationNode node = SBAConfig.getInstance().node("shop", "upgrade-shop", "render-footer-start");
+        if (!node.virtual()) {
+            return node.getInt();
+        }
+        return SBAConfig.getInstance().node("shop", "render-footer-start").getInt(600);
     }
     
     @Override
     public int getShopItemsOnRow() {
-        return SBAConfig.getInstance().getUpgradeShopItemsOnRow();
+        ConfigurationNode node = SBAConfig.getInstance().node("shop", "upgrade-shop", "items-on-row");
+        if (!node.virtual()) {
+            return node.getInt();
+        }
+        return SBAConfig.getInstance().node("shop", "items-on-row").getInt(9);
     }
     
     @Override
     public String getShopBack() {
-        return SBAConfig.getInstance().getUpgradeShopBack();
+        String value = SBAConfig.getInstance().getString("shop.upgrade-shop.shopback");
+        if (value != null && !value.isEmpty()) {
+            return value;
+        }
+        return SBAConfig.getInstance().getString("shop.shopback", "BARRIER");
     }
     
     @Override
     public String getShopPageBack() {
-        return SBAConfig.getInstance().getUpgradeShopPageBack();
+        String value = SBAConfig.getInstance().getString("shop.upgrade-shop.pageback");
+        if (value != null && !value.isEmpty()) {
+            return value;
+        }
+        return SBAConfig.getInstance().getString("shop.pageback", "ARROW");
     }
     
     @Override
     public String getShopPageForward() {
-        return SBAConfig.getInstance().getUpgradeShopPageForward();
+        String value = SBAConfig.getInstance().getString("shop.upgrade-shop.pageforward");
+        if (value != null && !value.isEmpty()) {
+            return value;
+        }
+        return SBAConfig.getInstance().getString("shop.pageforward", "BARRIER");
     }
 
     @EventHandler
