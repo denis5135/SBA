@@ -1,6 +1,7 @@
 package io.github.pronze.lib.pronzelib.scoreboards;
 
 import io.github.pronze.lib.pronzelib.scoreboards.scoreboardr.board.BoardPlayer;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
