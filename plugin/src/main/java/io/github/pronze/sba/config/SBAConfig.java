@@ -903,7 +903,7 @@ public class SBAConfig implements IConfigurator {
         }
     }
     
-    // ========== НОВЫЕ МЕТОДЫ ДЛЯ РАЗДЕЛЬНЫХ МАГАЗИНОВ ==========
+    // ========== МЕТОДЫ ДЛЯ РАЗДЕЛЬНЫХ МАГАЗИНОВ ==========
 
     // ===== ОБЫЧНЫЙ МАГАЗИН (normal-shop) =====
 
@@ -1138,89 +1138,4 @@ public class SBAConfig implements IConfigurator {
     public String getShopPageForward() {
         return getString("shop.pageforward", "BARRIER");
     }
-    // ========== МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ ИНДИВИДУАЛЬНЫХ НАСТРОЕК МАГАЗИНОВ ==========
-
-public String getNormalShopBack() {
-    ConfigurationNode node = node("shop", "normal-shop", "shopback");
-    if (!node.virtual()) {
-        return node.getString();
-    }
-    return node("shop", "shopback").getString("BARRIER");
-}
-
-public String getNormalShopPageBack() {
-    ConfigurationNode node = node("shop", "normal-shop", "pageback");
-    if (!node.virtual()) {
-        return node.getString();
-    }
-    return node("shop", "pageback").getString("ARROW");
-}
-
-public String getNormalShopPageForward() {
-    ConfigurationNode node = node("shop", "normal-shop", "pageforward");
-    if (!node.virtual()) {
-        return node.getString();
-    }
-    return node("shop", "pageforward").getString("BARRIER");
-}
-
-public String getUpgradeShopBack() {
-    ConfigurationNode node = node("shop", "upgrade-shop", "shopback");
-    if (!node.virtual()) {
-        return node.getString();
-    }
-    return node("shop", "shopback").getString("BARRIER");
-}
-
-public String getUpgradeShopPageBack() {
-    ConfigurationNode node = node("shop", "upgrade-shop", "pageback");
-    if (!node.virtual()) {
-        return node.getString();
-    }
-    return node("shop", "pageback").getString("ARROW");
-}
-
-public String getUpgradeShopPageForward() {
-    ConfigurationNode node = node("shop", "upgrade-shop", "pageforward");
-    if (!node.virtual()) {
-        return node.getString();
-    }
-    return node("shop", "pageforward").getString("BARRIER");
-}
-
-// ========== МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ НАЗВАНИЙ МАГАЗИНОВ ==========
-
-public String getNormalShopName() {
-    ConfigurationNode node = node("shop", "normal-shop", "name");
-    if (!node.virtual()) {
-        return node.getString();
-    }
-    return node("shop", "name").getString("[SBA] Item Shop");
-}
-
-public String getUpgradeShopName() {
-    ConfigurationNode node = node("shop", "upgrade-shop", "name");
-    if (!node.virtual()) {
-        return node.getString();
-    }
-    return node("shop", "name").getString("[SBA] Upgrade Shop");
-}
-
-// ========== МЕТОДЫ ДЛЯ NPC СКИНОВ ==========
-
-public ConfigurationNode getNormalShopSkin() {
-    ConfigurationNode node = node("shop", "normal-shop", "skin");
-    if (!node.virtual()) {
-        return node;
-    }
-    return node("shop", "skin");
-}
-
-public ConfigurationNode getUpgradeShopSkin() {
-    ConfigurationNode node = node("shop", "upgrade-shop", "skin");
-    if (!node.virtual()) {
-        return node;
-    }
-    return node("shop", "skin");
-}
 }
