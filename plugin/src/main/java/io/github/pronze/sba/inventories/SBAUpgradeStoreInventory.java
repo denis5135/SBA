@@ -43,6 +43,7 @@ import org.screamingsandals.simpleinventories.inventory.Include;
 import org.screamingsandals.simpleinventories.inventory.InventorySet;
 import org.screamingsandals.simpleinventories.inventory.PlayerItemInfo;
 import org.spongepowered.configurate.serialize.SerializationException;
+import org.spongepowered.configurate.ConfigurationNode;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
