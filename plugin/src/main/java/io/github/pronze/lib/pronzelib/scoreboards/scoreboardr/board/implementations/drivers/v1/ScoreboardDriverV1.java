@@ -1,5 +1,4 @@
 package io.github.pronze.lib.pronzelib.scoreboards.scoreboardr.board.implementations.drivers.v1;
-//https://github.com/RienBijl/Scoreboard-revision/blob/master/src/main/java/rien/bijl/Scoreboard/r/Board/Implementations/Drivers/V1/ScoreboardDriverV1.java
 
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -25,25 +24,34 @@ public class ScoreboardDriverV1 implements IBoard {
     private int lines;
     private HashMap<Integer, String> cache = new HashMap<>();
     private String objectiveName = "sbascoreboard";
+    private boolean initialized = false;
 
     @Override
     public void setPlayer(Player player) {
         this.player = player;
 
-        this.board = Objects.requireNonNull(Session.getSession().plugin.getServer().getScoreboardManager())
-                .getNewScoreboard();
-        this.objective = this.board.registerNewObjective(objectiveName, "dummy");
-        this.objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-        this.objective.setDisplayName("");
+        try {
+            this.board = Objects.requireNonNull(Session.getSession().plugin.getServer().getScoreboardManager())
+                    .getNewScoreboard();
+            this.objective = this.board.registerNewObjective(objectiveName, "dummy");
+            this.objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+            this.objective.setDisplayName("");
+            this.initialized = true;
 
-        this.createTeams();
-        this.setBoard();
+            this.createTeams();
+            this.setBoard();
+        } catch (Exception e) {
+            Logger.error("Failed to initialize scoreboard for player " + player.getName() + ": " + e.getMessage());
+            this.initialized = false;
+        }
 
         LineLimits.getLineLimit();
     }
 
     @Override
     public void setTitle(String title) {
+        if (!initialized || objective == null) return;
+        
         if (title == null) {
             title = "";
         }
@@ -57,6 +65,8 @@ public class ScoreboardDriverV1 implements IBoard {
 
     @Override
     public void setLine(int line, String content) {
+        if (!initialized || board == null) return;
+        
         if (content == null) {
             content = "";
         }
@@ -65,10 +75,9 @@ public class ScoreboardDriverV1 implements IBoard {
         }
 
         Team team = board.getTeam(line + "");
+        if (team == null) return;
+        
         String[] split = split(content);
-
-        assert team != null;
-
         team.setPrefix(split[0]);
         team.setSuffix(split[1]);
     }
@@ -78,7 +87,6 @@ public class ScoreboardDriverV1 implements IBoard {
         if (line.length() <= 32) {
             cutPoint = line.length() / 2;
         }
-        ;
         if (line.length() <= cutPoint || line.length() == 0) {
             return new String[] { line, "" };
         }
@@ -86,12 +94,12 @@ public class ScoreboardDriverV1 implements IBoard {
         String prefix = line.substring(0, cutPoint);
         String suffix = line.substring(cutPoint);
 
-        if (prefix.endsWith("§")) { // Check if we accidentally cut off a color
+        if (prefix.endsWith("§")) {
             prefix = ScoreboardStrings.removeLastCharacter(prefix);
             suffix = "§" + suffix;
-        } else if (prefix.contains("§")) { // Are there any colors we need to continue?
+        } else if (prefix.contains("§")) {
             suffix = ChatColor.getLastColors(prefix) + suffix;
-        } else { // Just make sure the team color doesn't mess up anything
+        } else {
             suffix = "§f" + suffix;
         }
 
@@ -119,32 +127,41 @@ public class ScoreboardDriverV1 implements IBoard {
     @Override
     public void setLineCount(int lines) {
         this.lines = lines;
-
         createTeams();
     }
 
     @Override
     public Player getPlayer() {
-        return this.getPlayer();
+        return player;
     }
 
     private void createTeams() {
-        if (board != null) {
+        if (!initialized || board == null || objective == null) {
+            Logger.warn("Cannot create teams - board not initialized for player " + 
+                        (player != null ? player.getName() : "unknown"));
+            return;
+        }
+
+        try {
             int score = this.lines;
 
             for (int i = 0; i < this.lines; i++) {
                 Team team = board.getTeam(i + "");
                 if (team == null) {
                     try {
-                        Team t = this.board.registerNewTeam(i + "");
-                        t.addEntry(ChatColor.values()[i] + "");
-                        this.objective.getScore(ChatColor.values()[i] + "").setScore(score);
+                        if (i < ChatColor.values().length) {
+                            Team t = this.board.registerNewTeam(i + "");
+                            t.addEntry(ChatColor.values()[i] + "");
+                            this.objective.getScore(ChatColor.values()[i] + "").setScore(score);
+                        }
                     } catch (Throwable tr) {
                         Logger.error("Failed to create team for line " + i + ": " + tr.getMessage());
                     }
                 } else {
                     try {
-                        this.objective.getScore(ChatColor.values()[i] + "").setScore(score);
+                        if (i < ChatColor.values().length) {
+                            this.objective.getScore(ChatColor.values()[i] + "").setScore(score);
+                        }
                     } catch (Throwable tr) {
                         Logger.error("Failed to set score for line " + i + ": " + tr.getMessage());
                     }
@@ -152,7 +169,6 @@ public class ScoreboardDriverV1 implements IBoard {
                 score--;
             }
             
-            // ДОБАВЛЕНА ПРОВЕРКА НА NULL
             if (board.getTeams() != null) {
                 for (int i = board.getTeams().size() - 1; i >= this.lines; i--) {
                     Team team = board.getTeam(i + "");
@@ -164,62 +180,48 @@ public class ScoreboardDriverV1 implements IBoard {
                         }
                     }
                 }
-            } else {
-                Logger.warn("board.getTeams() returned null for player " + player.getName());
             }
-        } else {
-            Logger.warn("Board is null in createTeams() for player " + (player != null ? player.getName() : "unknown"));
+        } catch (Exception e) {
+            Logger.error("Error in createTeams for player " + (player != null ? player.getName() : "unknown") + ": " + e.getMessage());
         }
     }
 
     private void setBoard() {
-        if (this.player != null && this.board != null) {
+        if (initialized && this.player != null && this.board != null) {
             this.player.setScoreboard(this.board);
         }
     }
 
     @Override
     public void setObjective(String objectiveName) {
-        if (objectiveName == null)
-            objectiveName = "sbascoreboard";
-        /*
-         * if (this.board != null)
-         * {
-         * this.objective = this.board.registerNewObjective(objectiveName, "dummy");
-         * this.objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-         * this.objective.setDisplayName("");
-         * }
-         * else
-         * this.objectiveName = objectiveName;
-         */
+        // Not needed
     }
 
     public boolean hasTeamEntry(String invisTeamName) {
-        return this.board != null && this.board.getTeam(invisTeamName) != null;
+        return initialized && this.board != null && this.board.getTeam(invisTeamName) != null;
     }
 
     public Team addTeam(String invisTeamName, ChatColor chatColor) {
-        if (this.board == null) return null;
-        Team t = this.board.registerNewTeam(invisTeamName);
-        // t.setColor(chatColor);
-        return t;
+        if (!initialized || this.board == null) return null;
+        return this.board.registerNewTeam(invisTeamName);
     }
 
     public Optional<Team> getTeamEntry(String invisTeamName) {
-        if (this.board == null) return Optional.empty();
+        if (!initialized || this.board == null) return Optional.empty();
         return Optional.ofNullable(this.board.getTeam(invisTeamName));
     }
 
     public Team getTeamOrRegister(String invisTeamName) {
-        if (this.board == null) return null;
+        if (!initialized || this.board == null) return null;
         Team t = this.board.getTeam(invisTeamName);
-        if (t == null)
+        if (t == null) {
             try {
                 t = addTeam(invisTeamName, ChatColor.GRAY);
             } catch (Throwable t_) {
                 t_.printStackTrace();
                 return null;
             }
+        }
         return t;
     }
 }
