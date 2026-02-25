@@ -52,6 +52,11 @@ public class MainLobbyVisualsManager implements Listener {
         load();
     }
 
+    public void reload() {
+        disable();
+        load();
+    }
+
     public void load() {
         if (!SBAConfig.getInstance().getBoolean("main-lobby.enabled", false)) {
             enabled = false;
@@ -96,7 +101,47 @@ public class MainLobbyVisualsManager implements Listener {
     @EventHandler
     public void onChat(AsyncPlayerChatEvent e) {
         if (!enabled) return;
-        // ... остальной код чата без изменений ...
+        if (!SBAConfig.getInstance().node("main-lobby", "custom-chat").getBoolean(true)) return;
+
+        final var player = e.getPlayer();
+
+        if (SBAConfig.getInstance().node("main-lobby", "enabled").getBoolean(false)
+                && MainLobbyVisualsManager.isInWorld(e.getPlayer().getLocation())) {
+            if (Main.isPlayerInGame(player)) return;
+            
+            try {
+                var chatFormat = LanguageService.getInstance()
+                        .get(MessageKeys.MAIN_LOBBY_CHAT_FORMAT)
+                        .toString();
+
+                if (chatFormat != null) {
+                    var levelManager = PlayerLevelManager.getInstance();
+                    int playerLevel = levelManager.getPlayerLevel(player);
+                    String playerPrefix = levelManager.getPlayerPrefix(player);
+                    
+                    var format = chatFormat
+                            .replace("%level%", String.valueOf(playerLevel))
+                            .replace("%prefix%", playerPrefix)
+                            .replace("%name%", e.getPlayer().getDisplayName() + ChatColor.RESET)
+                            .replace("%message%", e.getMessage())
+                            .replace("%color%", ShopUtil.ChatColorChanger(e.getPlayer()));
+
+                    if (SBA.getPluginInstance().getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+                        format = PlaceholderAPI.setPlaceholders(player, format);
+                    }
+                    final var msgToSend = format;
+                    Bukkit.getServer().getOnlinePlayers().forEach(p -> {
+                        if (MainLobbyVisualsManager.isInWorld(p.getLocation())
+                                && Main.getInstance().getGameOfPlayer(p) == null)
+                            p.sendMessage(msgToSend);
+                    });
+
+                    e.setCancelled(true);
+                }
+            } catch (Exception ex) {
+                Logger.error("Error in chat formatting: " + ex.getMessage());
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -127,7 +172,7 @@ public class MainLobbyVisualsManager implements Listener {
                 }
                 ScoreboardManager.getInstance().removeFromCache(player.getUniqueId());
             }
-        }, 10L); // Задержка полсекунды
+        }, 10L);
     }
 
     @EventHandler
@@ -187,7 +232,7 @@ public class MainLobbyVisualsManager implements Listener {
                 create(player);
                 Logger.trace("Scoreboard recreated for " + player.getName());
             }
-        }, 20L); // Секунда после игры
+        }, 20L);
     }
 
     public void create(Player player) {
@@ -225,7 +270,7 @@ public class MainLobbyVisualsManager implements Listener {
                     .player(player)
                     .title(title)
                     .displayObjective(MAIN_LOBBY_OBJECTIVE)
-                    .updateInterval(100L) // Обновление раз в 5 секунд
+                    .updateInterval(100L)
                     .lines(lines)
                     .placeholderHook(hook -> {
                         try {
