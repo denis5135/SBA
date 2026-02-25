@@ -147,8 +147,7 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
 
     @Override
     public boolean isUpgradeShop() {
-        // По умолчанию false - обычный магазин
-        return false;
+        return false; // Это обычный магазин
     }
 
     public Map.Entry<Boolean, Boolean> handlePurchase(Player player, AtomicReference<ItemStack> newItem,
@@ -843,135 +842,92 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 .variableToProperty("currency-changer", "currencyChanger");
     }
 
-    // ===== НОВЫЕ МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ НАСТРОЕК МАГАЗИНА =====
+    // ===== МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ НАСТРОЕК МАГАЗИНА =====
     
     private String getShopBackPath() {
-        if (isUpgradeShop()) {
-            return "upgrade-shop.shopback";
-        } else {
-            return "normal-shop.shopback";
-        }
+        return "shopback";
     }
     
     private String getShopPageBackPath() {
-        if (isUpgradeShop()) {
-            return "upgrade-shop.pageback";
-        } else {
-            return "normal-shop.pageback";
-        }
+        return "pageback";
     }
     
     private String getShopPageForwardPath() {
-        if (isUpgradeShop()) {
-            return "upgrade-shop.pageforward";
-        } else {
-            return "normal-shop.pageforward";
-        }
+        return "pageforward";
     }
     
     @Override
     public int getShopRows() {
-        if (isUpgradeShop()) {
-            return SBAConfig.getInstance().getUpgradeShopRows();
-        } else {
-            return SBAConfig.getInstance().getNormalShopRows();
-        }
+        return SBAConfig.getInstance().getNormalShopRows();
     }
     
     @Override
     public int getShopRenderActualRows() {
-        if (isUpgradeShop()) {
-            return SBAConfig.getInstance().getUpgradeShopRenderActualRows();
-        } else {
-            return SBAConfig.getInstance().getNormalShopRenderActualRows();
-        }
+        return SBAConfig.getInstance().getNormalShopRenderActualRows();
     }
     
     @Override
     public int getShopRenderOffset() {
-        if (isUpgradeShop()) {
-            return SBAConfig.getInstance().getUpgradeShopRenderOffset();
-        } else {
-            return SBAConfig.getInstance().getNormalShopRenderOffset();
-        }
+        return SBAConfig.getInstance().getNormalShopRenderOffset();
     }
     
     @Override
     public int getShopRenderHeaderStart() {
-        if (isUpgradeShop()) {
-            return SBAConfig.getInstance().getUpgradeShopRenderHeaderStart();
-        } else {
-            return SBAConfig.getInstance().getNormalShopRenderHeaderStart();
-        }
+        return SBAConfig.getInstance().getNormalShopRenderHeaderStart();
     }
     
     @Override
     public int getShopRenderFooterStart() {
-        if (isUpgradeShop()) {
-            return SBAConfig.getInstance().getUpgradeShopRenderFooterStart();
-        } else {
-            return SBAConfig.getInstance().getNormalShopRenderFooterStart();
-        }
+        return SBAConfig.getInstance().getNormalShopRenderFooterStart();
     }
     
     @Override
     public int getShopItemsOnRow() {
-        if (isUpgradeShop()) {
-            return SBAConfig.getInstance().getUpgradeShopItemsOnRow();
-        } else {
-            return SBAConfig.getInstance().getNormalShopItemsOnRow();
-        }
+        return SBAConfig.getInstance().getNormalShopItemsOnRow();
     }
     
     @Override
     public String getShopBack() {
-        if (isUpgradeShop()) {
-            return SBAConfig.getInstance().getUpgradeShopBack();
-        } else {
-            return SBAConfig.getInstance().getNormalShopBack();
-        }
+        return SBAConfig.getInstance().getNormalShopBack();
     }
     
     @Override
     public String getShopPageBack() {
-        if (isUpgradeShop()) {
-            return SBAConfig.getInstance().getUpgradeShopPageBack();
-        } else {
-            return SBAConfig.getInstance().getNormalShopPageBack();
-        }
+        return SBAConfig.getInstance().getNormalShopPageBack();
     }
     
     @Override
     public String getShopPageForward() {
-        if (isUpgradeShop()) {
-            return SBAConfig.getInstance().getUpgradeShopPageForward();
-        } else {
-            return SBAConfig.getInstance().getNormalShopPageForward();
-        }
+        return SBAConfig.getInstance().getNormalShopPageForward();
     }
 
     @EventHandler
     public void onBedWarsOpenShop(BedwarsOpenShopEvent event) {
-        event.setResult(BedwarsOpenShopEvent.Result.DISALLOW_UNKNOWN);
-        if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
-            LanguageService
-                    .getInstance()
-                    .get(MessageKeys.MESSAGE_NOT_IN_GAME)
-                    .send(Players.wrapPlayer(event.getPlayer()));
-            return;
-        }
-        if (Main.getInstance().getGameOfPlayer(event.getPlayer()).getTeamOfPlayer(event.getPlayer()) == null) {
-            LanguageService
-                    .getInstance()
-                    .get(MessageKeys.MESSAGE_NOT_IN_GAME)
-                    .send(Players.wrapPlayer(event.getPlayer()));
-            return;
-        }
+        final var shopFile = event.getStore().getShopFile();
         
-        // Используем существующий экземпляр, не создаём новый
-        SBAStoreInventoryV2 inventory = getInstance();
-        
-        inventory.openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
-                (GameStore) event.getStore());
+        // Проверяем, что это не магазин улучшений
+        if (shopFile == null || !shopFile.toLowerCase().contains("upgrade")) {
+            event.setResult(BedwarsOpenShopEvent.Result.DISALLOW_UNKNOWN);
+            if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
+                LanguageService
+                        .getInstance()
+                        .get(MessageKeys.MESSAGE_NOT_IN_GAME)
+                        .send(Players.wrapPlayer(event.getPlayer()));
+                return;
+            }
+            if (Main.getInstance().getGameOfPlayer(event.getPlayer()).getTeamOfPlayer(event.getPlayer()) == null) {
+                LanguageService
+                        .getInstance()
+                        .get(MessageKeys.MESSAGE_NOT_IN_GAME)
+                        .send(Players.wrapPlayer(event.getPlayer()));
+                return;
+            }
+            
+            // Используем существующий экземпляр, не создаём новый
+            SBAStoreInventoryV2 inventory = getInstance();
+            
+            inventory.openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
+                    (GameStore) event.getStore());
+        }
     }
 }
