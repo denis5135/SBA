@@ -541,7 +541,7 @@ public abstract class AbstractStoreInventory implements IStoreInventory, Listene
             AtomicReference<org.screamingsandals.lib.item.ItemStack> materialItem, PlayerItemInfo itemInfo, ItemSpawnerType type, AtomicReference<String[]> messageOnFail);
 
     @NotNull
-    public abstract InventorySetBuilder getInventorySetBuilder();
+   // ===== НОВЫЕ АБСТРАКТНЫЕ МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ НАСТРОЕК МАГАЗИНА =====
     
     public abstract boolean isUpgradeShop();
     
