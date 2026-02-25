@@ -28,15 +28,11 @@ import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 import io.github.pronze.sba.utils.SBAUtil;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
-import java.util.List;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import static org.screamingsandals.bedwars.lib.lang.I18n.i18nonly;
@@ -69,7 +65,6 @@ public class SBAConfig implements IConfigurator {
     public void loadDefaults() {
         this.dataFolder = plugin.getDataFolder();
 
-        /* To avoid config confusions */
         deleteFile("config.yml");
         deleteFile("bwaconfig.yml");
 
@@ -80,21 +75,11 @@ public class SBAConfig implements IConfigurator {
             levelsFolder = new File(dataFolder, "levels");
             itemLimitsFolder = new File(dataFolder, "item-limits");
 
-            if (!shopFolder.exists()) {
-                shopFolder.mkdirs();
-            }
-            if (!gamesInventoryFolder.exists()) {
-                gamesInventoryFolder.mkdirs();
-            }
-            if (!langFolder.exists()) {
-                langFolder.mkdirs();
-            }
-            if (!levelsFolder.exists()) {
-                levelsFolder.mkdirs();
-            }
-            if (!itemLimitsFolder.exists()) {
-                itemLimitsFolder.mkdirs();
-            }
+            if (!shopFolder.exists()) shopFolder.mkdirs();
+            if (!gamesInventoryFolder.exists()) gamesInventoryFolder.mkdirs();
+            if (!langFolder.exists()) langFolder.mkdirs();
+            if (!levelsFolder.exists()) levelsFolder.mkdirs();
+            if (!itemLimitsFolder.exists()) itemLimitsFolder.mkdirs();
 
             saveFile("languages/language_en.yml");
             saveFile("languages/language_ru.yml");
@@ -106,10 +91,7 @@ public class SBAConfig implements IConfigurator {
 
             saveFile("shops/moved-to-bedwars.txt");
             
-            // Сохраняем levels.yml
             saveFile("levels/levels.yml");
-            
-            // Сохраняем item-limits.yml
             saveFile("item-limits/item-limits.yml");
 
             moveFileIfNeeded("shop.yml");
@@ -126,7 +108,6 @@ public class SBAConfig implements IConfigurator {
 
             configurationNode = loader.load();
 
-            // Загружаем item-limits.yml
             File limitsFile = new File(itemLimitsFolder, "item-limits.yml");
             if (limitsFile.exists()) {
                 try {
@@ -167,8 +148,7 @@ public class SBAConfig implements IConfigurator {
                     .key("running-generator-drops").defValue(List.of("DIAMOND", "IRON_INGOT", "EMERALD", "GOLD_INGOT"))
                     .key("block-item-drops").defValue(true)
                     .key("allowed-item-drops")
-                    .defValue(List.of("DIAMOND", "IRON_INGOT", "EMERALD", "GOLD_INGOT", "GOLDEN_APPLE", "OBSIDIAN",
-                            "TNT"))
+                    .defValue(List.of("DIAMOND", "IRON_INGOT", "EMERALD", "GOLD_INGOT", "GOLDEN_APPLE", "OBSIDIAN", "TNT"))
                     .key("give-killer-resources").defValue(true)
                     .key("replace-sword-on-upgrade").defValue(true)
                     .key("block-players-putting-certain-items-onto-chest").defValue(true)
@@ -207,10 +187,9 @@ public class SBAConfig implements IConfigurator {
             generator.saveIfModified();
 
             Material repeater = Material.matchMaterial("REPEATER");
-            if (repeater == null)
-                repeater = Material.matchMaterial("REDSTONE_WIRE");
-            if (repeater == null)
-                repeater = Material.matchMaterial("CAKE");
+            if (repeater == null) repeater = Material.matchMaterial("REDSTONE_WIRE");
+            if (repeater == null) repeater = Material.matchMaterial("CAKE");
+            
             generator.start()
                     .section("upgrades")
                     .key("timer-upgrades-enabled").defValue(true)
@@ -315,8 +294,6 @@ public class SBAConfig implements IConfigurator {
                     .key("pageback").defValue("ARROW")
                     .key("pageforward").defValue("BARRIER")
                     .key("shopcosmetic").defValue("GRAY_STAINED_GLASS_PANE")
-                    //.key("rows").defValue(6)
-                    //.key("render-actual-rows").defValue(6)
                     .key("render-offset").defValue(0)
                     .key("render-header-start").defValue(9)
                     .key("render-footer-start").defValue(600)
@@ -349,31 +326,38 @@ public class SBAConfig implements IConfigurator {
                     .back()
                     .back()
                     .section("normal-shop")
+                    .key("rows").defValue(6)
+                    .key("render-actual-rows").defValue(6)
+                    .key("render-offset").defValue(0)
+                    .key("render-header-start").defValue(9)
+                    .key("render-footer-start").defValue(600)
+                    .key("items-on-row").defValue(9)
                     .key("entity-name").defValue(List.of("§bITEM SHOP", "§e§lRIGHT CLICK"))
                     .section("skin")
                     .key("value")
-                    .defValue(
-                            "ewogICJ0aW1lc3RhbXAiIDogMTYyNjA5MTkyNjQ3NCwKICAicHJvZmlsZUlkIiA6ICJiNjM2OWQ0MzMwNTU0NGIzOWE5OTBhODYyNWY5MmEwNSIsCiAgInByb2ZpbGVOYW1lIiA6ICJCb2JpbmhvXyIsCiAgInNpZ25hdHVyZVJlcXVpcmVkIiA6IHRydWUsCiAgInRleHR1cmVzIiA6IHsKICAgICJTS0lOIiA6IHsKICAgICAgInVybCIgOiAiaHR0cDovL3RleHR1cmVzLm1pbmVjcmFmdC5uZXQvdGV4dHVyZS9iZmRmOTBkZWI0YmYzNmM3Y2I4Y2Y2Zjg0NWQ0OTYzZWVhODkyNzRlMDBkNmFjMzQxNjJiYTc3MTE1ZjMyMWZhIgogICAgfQogIH0KfQ==")
+                    .defValue("ewogICJ0aW1lc3RhbXAiIDogMTYyNjA5MTkyNjQ3NCwKICAicHJvZmlsZUlkIiA6ICJiNjM2OWQ0MzMwNTU0NGIzOWE5OTBhODYyNWY5MmEwNSIsCiAgInByb2ZpbGVOYW1lIiA6ICJCb2JpbmhvXyIsCiAgInNpZ25hdHVyZVJlcXVpcmVkIiA6IHRydWUsCiAgInRleHR1cmVzIiA6IHsKICAgICJTS0lOIiA6IHsKICAgICAgInVybCIgOiAiaHR0cDovL3RleHR1cmVzLm1pbmVjcmFmdC5uZXQvdGV4dHVyZS9iZmRmOTBkZWI0YmYzNmM3Y2I4Y2Y2Zjg0NWQ0OTYzZWVhODkyNzRlMDBkNmFjMzQxNjJiYTc3MTE1ZjMyMWZhIgogICAgfQogIH0KfQ==")
                     .key("signature")
-                    .defValue(
-                            "dRVORv3TXsP80Xfzy2/CYAHN92iF+4UYe8Un7jSEvCc9fwz9z39lB1ooO62hdArqZuNU2b7OKUZd8LYbctj8hUnaKdQ4kxbO1xQENRATNGsk1PWrVLgMikg2Vx4+2DCakE18f9UAVGHqGFVInI3dCCG7QmWqNI+l4g+GjxNzYVDWlW/PsB7CuQsOhJGY1hq2B1JRQ4mhZl0Tks/gU+qdw+ClOShB50KB2Q60d+fd04xYYCAJHk/a9c45EBBU8rHix8M2GV6hYXQZcdXZMB/KZBHAQfCrnlMhlTOzKfUYI5sDzSH6zBIWtE36zVeuYuM4Rppt0doT9qNJXJIYJ4UlZ11l8F9/ShQST+h138yJMgxRmIi3KAGhEJ8aVKkeeXMARbF9uFZbxHoZd66lhA5BWYsrFhyxKrPVO2AsfsfFQCY/DLurEdVVTWcN5K4Frh2Pt97gDJYBYXOuClaS367q57X76yuFqOFe6AvRI1Hvr22k8WvqpSqXzEXlfLUMwz9iKgbptS/Y9X78dseBwS7OdmUTFl1VgDZerQH1RDUrDTxr/Hiv0KE1czhbOQInRTaAT65dPB9RHZ3OnlgHcA7+7joRuPHihPuLH45NKHAxLn10CiolrtgxmGejkWqtNVKNlZNiAl49u4CRCqC13P/crCi9vlonjPg8mkLivsuyA8g=")
+                    .defValue("dRVORv3TXsP80Xfzy2/CYAHN92iF+4UYe8Un7jSEvCc9fwz9z39lB1ooO62hdArqZuNU2b7OKUZd8LYbctj8hUnaKdQ4kxbO1xQENRATNGsk1PWrVLgMikg2Vx4+2DCakE18f9UAVGHqGFVInI3dCCG7QmWqNI+l4g+GjxNzYVDWlW/PsB7CuQsOhJGY1hq2B1JRQ4mhZl0Tks/gU+qdw+ClOShB50KB2Q60d+fd04xYYCAJHk/a9c45EBBU8rHix8M2GV6hYXQZcdXZMB/KZBHAQfCrnlMhlTOzKfUYI5sDzSH6zBIWtE36zVeuYuM4Rppt0doT9qNJXJIYJ4UlZ11l8F9/ShQST+h138yJMgxRmIi3KAGhEJ8aVKkeeXMARbF9uFZbxHoZd66lhA5BWYsrFhyxKrPVO2AsfsfFQCY/DLurEdVVTWcN5K4Frh2Pt97gDJYBYXOuClaS367q57X76yuFqOFe6AvRI1Hvr22k8WvqpSqXzEXlfLUMwz9iKgbptS/Y9X78dseBwS7OdmUTFl1VgDZerQH1RDUrDTxr/Hiv0KE1czhbOQInRTaAT65dPB9RHZ3OnlgHcA7+7joRuPHihPuLH45NKHAxLn10CiolrtgxmGejkWqtNVKNlZNiAl49u4CRCqC13P/crCi9vlonjPg8mkLivsuyA8g=")
                     .back()
                     .key("name").defValue("[SBA] Item Shop")
                     .back()
                     .section("upgrade-shop")
+                    .key("rows").defValue(3)
+                    .key("render-actual-rows").defValue(3)
+                    .key("render-offset").defValue(0)
+                    .key("render-header-start").defValue(9)
+                    .key("render-footer-start").defValue(600)
+                    .key("items-on-row").defValue(9)
                     .key("name").defValue("[SBA] Upgrade Shop")
                     .key("entity-name").defValue(List.of("§bTEAM", "§bUPGRADES", "§e§lRIGHT CLICK"))
                     .section("skin")
                     .key("value")
-                    .defValue(
-                            "ewogICJ0aW1lc3RhbXAiIDogMTYyNjA4ODMxNjI3OCwKICAicHJvZmlsZUlkIiA6ICIxYWZhZjc2NWI1ZGY0NjA3YmY3ZjY1ZGYzYWIwODhhOCIsCiAgInByb2ZpbGVOYW1lIiA6ICJMb3lfQmxvb2RBbmdlbCIsCiAgInNpZ25hdHVyZVJlcXVpcmVkIiA6IHRydWUsCiAgInRleHR1cmVzIiA6IHsKICAgICJTS0lOIiA6IHsKICAgICAgInVybCIgOiAiaHR0cDovL3RleHR1cmVzLm1pbmVjcmFmdC5uZXQvdGV4dHVyZS85ZjM0N2NiYjg3ZmVjMDA2MDc3ZDI2MTFjZjk4MTM4NGMwOWNlM2FjNDQ1M2FlY2M4MjMzYWMwODk3YjA3ZDYwIgogICAgfQogIH0KfQ==")
+                    .defValue("ewogICJ0aW1lc3RhbXAiIDogMTYyNjA4ODMxNjI3OCwKICAicHJvZmlsZUlkIiA6ICIxYWZhZjc2NWI1ZGY0NjA3YmY3ZjY1ZGYzYWIwODhhOCIsCiAgInByb2ZpbGVOYW1lIiA6ICJMb3lfQmxvb2RBbmdlbCIsCiAgInNpZ25hdHVyZVJlcXVpcmVkIiA6IHRydWUsCiAgInRleHR1cmVzIiA6IHsKICAgICJTS0lOIiA6IHsKICAgICAgInVybCIgOiAiaHR0cDovL3RleHR1cmVzLm1pbmVjcmFmdC5uZXQvdGV4dHVyZS85ZjM0N2NiYjg3ZmVjMDA2MDc3ZDI2MTFjZjk4MTM4NGMwOWNlM2FjNDQ1M2FlY2M4MjMzYWMwODk3YjA3ZDYwIgogICAgfQogIH0KfQ==")
                     .key("signature")
-                    .defValue(
-                            "oqCVAspoQ/uCoZX/2XTgoYjAGBVJSXLi+/QPHKPaGqP9zEXHE7k5TH5Z7K7x5D8ECCtZq8jW6GCzIzigvTKp2jRXoEnjnOmzc82P6nSV39NKueB6XVi12fluewaLNlzhJUwn1+7NOYlwKH3qN3/Rd8bE3lNv9bkrWN67zjnYDA7o4vxfkzgV9Hd1CEV9oVRsSne3rm7kYN1iRoMYArL4+EYTYUxd6HMUZ33b5yecQz+UctiGcRUXzPDU/RANxYlBkH6WIe6C8QH84MtjTD20X/2qmlhYeTA98Jf5eiPLfTd+30q603moUEf5VyEuaK3qxMektnaaIO0Wdx7fGYQelbDkejxqL7c//gupksKMqlFqBtLYTRcAXCS5hFbl2tnN80O4Kq0v4E1HOmBZYKZf/yYahNbRZyj0hNaG1dDdM/dqfBmBQWbcSnvb3M9YE9mXAoddryRii6kHVEQWO+C8xHECQK69AN/XhGnr+2X+cDfHHGIrVY10/rVXF2faPTauj/aFOZLp/fhOuLzOSQZYQCIe/jiO5BbEJ6owU5cyL0V/8x4609Pu7REhwiS2wDUrfLl5yyTyw232pVwO545awKV0O0/fnWeeLePuv8qBh/ngNZ52iDeEfpDeBe3DB1FFOSup96/eL/7blzDxKmzIVO29egg8xTVsYwUr23J1y0s=")
+                    .defValue("oqCVAspoQ/uCoZX/2XTgoYjAGBVJSXLi+/QPHKPaGqP9zEXHE7k5TH5Z7K7x5D8ECCtZq8jW6GCzIzigvTKp2jRXoEnjnOmzc82P6nSV39NKueB6XVi12fluewaLNlzhJUwn1+7NOYlwKH3qN3/Rd8bE3lNv9bkrWN67zjnYDA7o4vxfkzgV9Hd1CEV9oVRsSne3rm7kYN1iRoMYArL4+EYTYUxd6HMUZ33b5yecQz+UctiGcRUXzPDU/RANxYlBkH6WIe6C8QH84MtjTD20X/2qmlhYeTA98Jf5eiPLfTd+30q603moUEf5VyEuaK3qxMektnaaIO0Wdx7fGYQelbDkejxqL7c//gupksKMqlFqBtLYTRcAXCS5hFbl2tnN80O4Kq0v4E1HOmBZYKZf/yYahNbRZyj0hNaG1dDdM/dqfBmBQWbcSnvb3M9YE9mXAoddryRii6kHVEQWO+C8xHECQK69AN/XhGnr+2X+cDfHHGIrVY10/rVXF2faPTauj/aFOZLp/fhOuLzOSQZYQCIe/jiO5BbEJ6owU5cyL0V/8x4609Pu7REhwiS2wDUrfLl5yyTyw232pVwO545awKV0O0/fnWeeLePuv8qBh/ngNZ52iDeEfpDeBe3DB1FFOSup96/eL/7blzDxKmzIVO29egg8xTVsYwUr23J1y0s=")
                     .back()
                     .back()
                     .back()
-                    // УДАЛЕНО: section("player-statistics")
                     .section("npc")
                     .key("enabled").defValue(true)
                     .key("shop-skin").defValue(561657710)
@@ -440,84 +424,37 @@ public class SBAConfig implements IConfigurator {
     }
 
     public class TeamStatusConfig {
-        public String targetDestroyed() {
-            return getString("team-status.target-destroyed", "§c✗");
-        }
-
-        public String targetExists() {
-            return getString("team-status.target-exists", "§a✓");
-        }
-
-        public String alive() {
-            return getString("team-status.alive", "%color% %team% §a✓ §8%you%");
-        }
-
-        public String destroyed() {
-            return getString("team-status.destroyed", "%color% %team% §a§f%players%§8 %you%");
-        }
-
-        public String eliminated() {
-            return getString("team-status.eliminated", "%color% %team% §c✘ %you%");
-        }
+        public String targetDestroyed() { return getString("team-status.target-destroyed", "§c✗"); }
+        public String targetExists() { return getString("team-status.target-exists", "§a✓"); }
+        public String alive() { return getString("team-status.alive", "%color% %team% §a✓ §8%you%"); }
+        public String destroyed() { return getString("team-status.destroyed", "%color% %team% §a§f%players%§8 %you%"); }
+        public String eliminated() { return getString("team-status.eliminated", "%color% %team% §c✘ %you%"); }
     }
 
-    public boolean replaceStoreWithNpc() {
-        return node("replace-stores-with-npc").getBoolean(true);
-    }
+    public boolean replaceStoreWithNpc() { return node("replace-stores-with-npc").getBoolean(true); }
 
     public boolean replaceStoreWithCitizen() {
-        return node("replace-stores-with-citizen").getBoolean(false)
-                && SBA.getInstance().citizensFix.canEnable();
+        return node("replace-stores-with-citizen").getBoolean(false) && SBA.getInstance().citizensFix.canEnable();
     }
 
-    public PartyConfig party() {
-        return new PartyConfig();
-    }
+    public PartyConfig party() { return new PartyConfig(); }
 
     public class PartyConfig {
-        public boolean enabled() {
-            return getBoolean("party.enabled", false);
-        }
-
-        public boolean autojoin() {
-            return getBoolean("party.leader-autojoin-autoleave", false);
-        }
-
-        public int expirationTime() {
-            return getInt("party.invite-expiration-time", 60);
-        }
+        public boolean enabled() { return getBoolean("party.enabled", false); }
+        public boolean autojoin() { return getBoolean("party.leader-autojoin-autoleave", false); }
+        public int expirationTime() { return getInt("party.invite-expiration-time", 60); }
     }
 
-    public SpectatorConfig spectator() {
-        return new SpectatorConfig();
-    }
+    public SpectatorConfig spectator() { return new SpectatorConfig(); }
 
     public class SpectatorConfig {
-        public boolean adventure() {
-            return getBoolean("spectator.adventure-mode", false);
-        }
-
-        public TeleporterConfig teleporter() {
-            return new TeleporterConfig();
-        }
-
+        public boolean adventure() { return getBoolean("spectator.adventure-mode", false); }
+        public TeleporterConfig teleporter() { return new TeleporterConfig(); }
         public class TeleporterConfig {
-            public boolean enabled() {
-                return getBoolean("spectator.teleporter.enabled", false);
-            }
-
-            public String name() {
-                return getString("spectator.teleporter.name", "§cP§6l§ea§ay§9e§br§5s");
-            }
-
-            public String material() {
-                return getString("spectator.teleporter.material", "CAKE");
-            }
-
-            public int slot() {
-                return getInt("spectator.teleporter.slot", 0);
-            }
-
+            public boolean enabled() { return getBoolean("spectator.teleporter.enabled", false); }
+            public String name() { return getString("spectator.teleporter.name", "§cP§6l§ea§ay§9e§br§5s"); }
+            public String material() { return getString("spectator.teleporter.material", "CAKE"); }
+            public int slot() { return getInt("spectator.teleporter.slot", 0); }
             public ItemStack get() {
                 ItemStack compass = new ItemStack(Material.matchMaterial(material()));
                 var meta = compass.getItemMeta();
@@ -526,32 +463,13 @@ public class SBAConfig implements IConfigurator {
                 return compass;
             }
         }
-
-        public TrackerConfig tracker() {
-            return new TrackerConfig();
-        }
-
+        public TrackerConfig tracker() { return new TrackerConfig(); }
         public class TrackerConfig {
-            public boolean enabled() {
-                return getBoolean("spectator.tracker.enabled", false);
-            }
-
-            public boolean keepOnStart() {
-                return getBoolean("spectator.tracker.keep-on-start", true);
-            }
-
-            public String name() {
-                return getString("spectator.tracker.name", "§cP§6l§ea§ay§9e§br§5s");
-            }
-
-            public String material() {
-                return getString("spectator.tracker.material", "COMPASS");
-            }
-
-            public int slot() {
-                return getInt("spectator.tracker.slot", 4);
-            }
-
+            public boolean enabled() { return getBoolean("spectator.tracker.enabled", false); }
+            public boolean keepOnStart() { return getBoolean("spectator.tracker.keep-on-start", true); }
+            public String name() { return getString("spectator.tracker.name", "§cP§6l§ea§ay§9e§br§5s"); }
+            public String material() { return getString("spectator.tracker.material", "COMPASS"); }
+            public int slot() { return getInt("spectator.tracker.slot", 4); }
             public ItemStack get() {
                 ItemStack compass = new ItemStack(Material.matchMaterial(material()));
                 var meta = compass.getItemMeta();
@@ -560,16 +478,9 @@ public class SBAConfig implements IConfigurator {
                 return compass;
             }
         }
-
-        public LeaveItem leave() {
-            return new LeaveItem();
-        }
-
+        public LeaveItem leave() { return new LeaveItem(); }
         public class LeaveItem {
-            public int position() {
-                return Main.getConfigurator().config.getInt("hotbar.leave", 8);
-            }
-
+            public int position() { return Main.getConfigurator().config.getInt("hotbar.leave", 8); }
             public ItemStack get() {
                 ItemStack leave = Main.getConfigurator().readDefinedItem("leavegame", "SLIME_BALL");
                 ItemMeta leaveMeta = leave.getItemMeta();
@@ -578,202 +489,96 @@ public class SBAConfig implements IConfigurator {
                 return leave;
             }
         }
-
-        public boolean compassWhileSpectator() {
-            return getBoolean("spectator.compass-spectator", true);
-        }
+        public boolean compassWhileSpectator() { return getBoolean("spectator.compass-spectator", true); }
     }
 
-    public UpgradeConfig upgrades() {
-        return new UpgradeConfig();
-    }
+    public UpgradeConfig upgrades() { return new UpgradeConfig(); }
 
     public class UpgradeConfig {
-        public boolean boots() {
-            return getBoolean("upgrade-item.boots", true);
-        }
-
-        public boolean leggings() {
-            return getBoolean("upgrade-item.leggings", true);
-        }
-
-        public boolean chestplate() {
-            return getBoolean("upgrade-item.chestplate", false);
-        }
-
-        public boolean helmet() {
-            return getBoolean("upgrade-item.helmet", false);
-        }
-
-        public EnchantApplyConfig enchants() {
-            return new EnchantApplyConfig();
-        }
-
+        public boolean boots() { return getBoolean("upgrade-item.boots", true); }
+        public boolean leggings() { return getBoolean("upgrade-item.leggings", true); }
+        public boolean chestplate() { return getBoolean("upgrade-item.chestplate", false); }
+        public boolean helmet() { return getBoolean("upgrade-item.helmet", false); }
+        public EnchantApplyConfig enchants() { return new EnchantApplyConfig(); }
         public class EnchantApplyConfig {
-            public List<String> keys() {
-                var keys = AddonAPI.getInstance().getConfigurator().getSubKeys("upgrade-item.enchants");
-                return keys;
-            }
-
-            public List<String> sharpness() {
-                return getStringList("upgrade-item.enchants.sharpness");
-            }
-
-            public List<String> knockback() {
-                return getStringList("upgrade-item.enchants.knockback");
-            }
-
-            public List<String> protection() {
-                return getStringList("upgrade-item.enchants.protection");
-            }
-
-            public List<String> efficiency() {
-                return getStringList("upgrade-item.enchants.efficiency");
-            }
-
-            public List<String> of(String s) {
-                return getStringList("upgrade-item.enchants." + s);
-            }
+            public List<String> keys() { return AddonAPI.getInstance().getConfigurator().getSubKeys("upgrade-item.enchants"); }
+            public List<String> sharpness() { return getStringList("upgrade-item.enchants.sharpness"); }
+            public List<String> knockback() { return getStringList("upgrade-item.enchants.knockback"); }
+            public List<String> protection() { return getStringList("upgrade-item.enchants.protection"); }
+            public List<String> efficiency() { return getStringList("upgrade-item.enchants.efficiency"); }
+            public List<String> of(String s) { return getStringList("upgrade-item.enchants." + s); }
         }
     }
 
-    public AIConfig ai() {
-        return new AIConfig();
-    }
+    public AIConfig ai() { return new AIConfig(); }
 
     private boolean aiDisabled = false;
 
     public class AIConfig {
-        public boolean enabled() {
-            return !aiDisabled && getBoolean("ai.enabled", false);
-        }
-
-        public String skin() {
-            var lst = new ArrayList<>(getStringList("ai.skins"));
-            Collections.shuffle(lst);
-            return lst.get(0);
-        }
-
-        public long delay() {
-            return getInt("ai.delay-in-ticks", 80);
-        }
-
-        public boolean useStores() {
-            return getBoolean("ai.use-stores", false);
-        }
-
+        public boolean enabled() { return !aiDisabled && getBoolean("ai.enabled", false); }
+        public String skin() { var lst = new ArrayList<>(getStringList("ai.skins")); Collections.shuffle(lst); return lst.get(0); }
+        public long delay() { return getInt("ai.delay-in-ticks", 80); }
+        public boolean useStores() { return getBoolean("ai.use-stores", false); }
         public @NotNull String infiniteItem() {
             String defaultMaterial = "STONE";
             if (Material.getMaterial("OAK_PLANKS") != null) defaultMaterial = "OAK_PLANKS";
             String returnValue = getString("ai.infinite-material", defaultMaterial);
-            if (Material.getMaterial(returnValue) == null) {
-                return defaultMaterial;
-            }
+            if (Material.getMaterial(returnValue) == null) return defaultMaterial;
             return returnValue;
         }
-
-        public void disable() {
-            aiDisabled = true;
-        }
+        public void disable() { aiDisabled = true; }
     }
 
-    public boolean shouldCheckUpdate() {
-        return shouldWarnConsoleAboutUpdate() || shouldWarnPlayerAboutUpdate();
-    }
-
-    public boolean shouldWarnConsoleAboutUpdate() {
-        return getBoolean("update-checker.console", true);
-    }
-
-    public boolean shouldWarnPlayerAboutUpdate() {
-        return getBoolean("update-checker.admins", true);
-    }
+    public boolean shouldCheckUpdate() { return shouldWarnConsoleAboutUpdate() || shouldWarnPlayerAboutUpdate(); }
+    public boolean shouldWarnConsoleAboutUpdate() { return getBoolean("update-checker.console", true); }
+    public boolean shouldWarnPlayerAboutUpdate() { return getBoolean("update-checker.admins", true); }
 
     private void moveFileIfNeeded(String path) {
         var path1 = Bukkit.getPluginManager().getPlugin("SBA").getDataFolder().toPath().resolve("shops/" + path);
         var path2 = SBA.getBedwarsPlugin().getDataFolder().toPath().resolve(path);
         if (path1.toFile().exists()) {
             if (!path2.toFile().exists() || path1.toFile().lastModified() > path2.toFile().lastModified()) {
-                try {
-                    Files.copy(path1, path2, StandardCopyOption.REPLACE_EXISTING);
-                } catch (IOException e) {
-                    Logger.error("Could not copy file {} from SBA/shops/{} to Bedwars/{}", path);
-                }
+                try { Files.copy(path1, path2, StandardCopyOption.REPLACE_EXISTING); } 
+                catch (IOException e) { Logger.error("Could not copy file {} from SBA/shops/{} to Bedwars/{}", path); }
             }
         }
     }
 
     public void forceReload() {
-        loader = YamlConfigurationLoader.builder()
-                .path(dataFolder.toPath().resolve("sbaconfig.yml"))
-                .nodeStyle(NodeStyle.BLOCK)
-                .build();
-
-        try {
-            configurationNode = loader.load();
-        } catch (ConfigurateException e) {
-            e.printStackTrace();
-        }
+        loader = YamlConfigurationLoader.builder().path(dataFolder.toPath().resolve("sbaconfig.yml")).nodeStyle(NodeStyle.BLOCK).build();
+        try { configurationNode = loader.load(); } catch (ConfigurateException e) { e.printStackTrace(); }
     }
 
     private void saveFile(String fileName, String saveTo) {
         final var file = new File(dataFolder, fileName);
-        if (!file.exists()) {
-            plugin.saveResource(saveTo, false);
-        }
+        if (!file.exists()) plugin.saveResource(saveTo, false);
     }
 
-    private void deleteFile(String fileName) {
-        final var file = new File(fileName);
-        if (file.exists()) {
-            file.delete();
-        }
-    }
-
-    private void saveFile(String fileName) {
-        saveFile(fileName, fileName);
-    }
+    private void deleteFile(String fileName) { final var file = new File(fileName); if (file.exists()) file.delete(); }
+    private void saveFile(String fileName) { saveFile(fileName, fileName); }
 
     public void saveShop(String fileName, boolean force) {
         var path2 = SBA.getBedwarsPlugin().getDataFolder().toPath().resolve(fileName);
-
         if (!path2.toFile().exists() || force) {
             try (var input = SBAConfig.class.getResourceAsStream("/shops/" + fileName)) {
                 System.out.println("Saving shop '" + fileName + "' at '" + path2 + "'");
                 path2.toFile().getParentFile().mkdirs();
-                try (var output = new FileOutputStream(path2.toFile())) {
-                    if (input != null) input.transferTo(output);
-                }
-            } catch (IOException e) {
-                Logger.error("Could not save store {} due to {}", fileName, e);
-            }
+                try (var output = new FileOutputStream(path2.toFile())) { if (input != null) input.transferTo(output); }
+            } catch (IOException e) { Logger.error("Could not save store {} due to {}", fileName, e); }
         }
     }
 
     @Override
     public void upgrade() {
-        try {
-            node("version").set(plugin.getDescription().getVersion());
-            saveConfig();
-            SBAUtil.reloadPlugin(Main.getInstance(), null);
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+        try { node("version").set(plugin.getDescription().getVersion()); saveConfig(); SBAUtil.reloadPlugin(Main.getInstance(), null); } 
+        catch (Exception ex) { ex.printStackTrace(); }
     }
 
     @Override
-    public double getDouble(String path, double def) {
-        return node((Object[]) path.split("\\.")).getDouble(def);
-    }
+    public double getDouble(String path, double def) { return node((Object[]) path.split("\\.")).getDouble(def); }
 
     @Override
-    public void saveConfig() {
-        try {
-            this.loader.save(this.configurationNode);
-        } catch (ConfigurateException e) {
-            e.printStackTrace();
-        }
-    }
+    public void saveConfig() { try { this.loader.save(this.configurationNode); } catch (ConfigurateException e) { e.printStackTrace(); } }
 
     @Override
     public List<String> getStringList(String string) {
@@ -783,122 +588,56 @@ public class SBAConfig implements IConfigurator {
                 s = ChatColor.translateAlternateColorCodes('&', s);
                 list.add(s);
             }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+        } catch (Exception ex) { ex.printStackTrace(); }
         return list;
     }
 
     @Override
     public List<String> getSubKeys(String string) {
-        try {
-            return node((Object[]) string.split("\\.")).childrenMap().keySet().stream()
-                    .map(Object::toString)
-                    .collect(Collectors.toList());
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+        try { return node((Object[]) string.split("\\.")).childrenMap().keySet().stream().map(Object::toString).collect(Collectors.toList()); } 
+        catch (Exception ex) { ex.printStackTrace(); }
         return List.of();
     }
 
-    public void set(String path, Object value) {
-        try {
-            node(path).set(value);
-            generator.saveIfModified();
-        } catch (Throwable e) {
-            e.printStackTrace();
-        }
-    }
+    public void set(String path, Object value) { try { node(path).set(value); generator.saveIfModified(); } catch (Throwable e) { e.printStackTrace(); } }
 
     @Override
-    public Integer getInt(String path, Integer def) {
-        return node((Object[]) path.split("\\.")).getInt(def);
-    }
+    public Integer getInt(String path, Integer def) { return node((Object[]) path.split("\\.")).getInt(def); }
 
     @Override
-    public Byte getByte(String path, Byte def) {
-        final var val = node((Object[]) path.split("\\.")).getInt(def);
-        if (val > 127 || val < -128) return def;
-        return (byte) val;
-    }
+    public Byte getByte(String path, Byte def) { final var val = node((Object[]) path.split("\\.")).getInt(def); if (val > 127 || val < -128) return def; return (byte) val; }
 
     @Override
-    public Boolean getBoolean(String path, boolean def) {
-        return node((Object[]) path.split("\\.")).getBoolean(def);
-    }
+    public Boolean getBoolean(String path, boolean def) { return node((Object[]) path.split("\\.")).getBoolean(def); }
 
-    public String getString(String path) {
-        return ChatColor.translateAlternateColorCodes('&',
-                Objects.requireNonNull(node((Object[]) path.split("\\.")).getString()));
-    }
+    public String getString(String path) { return ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(node((Object[]) path.split("\\.")).getString())); }
 
     @Override
-    public String getString(String path, String def) {
-        final var str = getString(path);
-        if (str == null) {
-            return def;
-        }
-        return str;
-    }
+    public String getString(String path, String def) { final var str = getString(path); if (str == null) return def; return str; }
 
     public org.screamingsandals.lib.item.ItemStack readDefinedItem(ConfigurationNode node, String def) {
-        if (!node.empty()) {
-            var obj = node.raw();
-            return Objects.requireNonNullElse(ItemStackFactory.build(obj), ItemStackFactory.getAir());
-        }
+        if (!node.empty()) { var obj = node.raw(); return Objects.requireNonNullElse(ItemStackFactory.build(obj), ItemStackFactory.getAir()); }
         return Objects.requireNonNullElse(ItemStackFactory.build(def), ItemStackFactory.getAir());
     }
 
     // ========== МЕТОДЫ ДЛЯ УРОВНЕЙ ==========
-    
-    public String getLevelPrefix(int level) {
-        return LevelConfig.getInstance().getLevelPrefix(level);
-    }
-
-    public int getRequiredXP(int level) {
-        return LevelConfig.getInstance().getRequiredXP(level);
-    }
-
-    public List<String> getLevelRewards(int level) {
-        return new ArrayList<>();
-    }
-    
-    public String getLevelRewardBroadcast(int level) {
-        return null;
-    }
+    public String getLevelPrefix(int level) { return LevelConfig.getInstance().getLevelPrefix(level); }
+    public int getRequiredXP(int level) { return LevelConfig.getInstance().getRequiredXP(level); }
+    public List<String> getLevelRewards(int level) { return new ArrayList<>(); }
+    public String getLevelRewardBroadcast(int level) { return null; }
     
     // ========== МЕТОДЫ ДЛЯ ЛИМИТОВ ПРЕДМЕТОВ ==========
-    
-    public boolean isItemLimitsEnabled() {
-        return getBoolean("shop.limit-items-enabled", true);
-    }
-    
-    public int getItemLimit(String materialName) {
-        if (itemLimitsNode == null) return getDefaultItemLimit();
-        return itemLimitsNode.node("limits", materialName).getInt(getDefaultItemLimit());
-    }
-    
-    public int getDefaultItemLimit() {
-        return getInt("shop.limits.default", -1);
-    }
+    public boolean isItemLimitsEnabled() { return getBoolean("shop.limit-items-enabled", true); }
+    public int getItemLimit(String materialName) { if (itemLimitsNode == null) return getDefaultItemLimit(); return itemLimitsNode.node("limits", materialName).getInt(getDefaultItemLimit()); }
+    public int getDefaultItemLimit() { return getInt("shop.limits.default", -1); }
     
     // ========== МЕТОДЫ ДЛЯ ПРОКАЧКИ ИНСТРУМЕНТОВ ==========
-    
-    public boolean isToolUpgradeEnabled() {
-        return getBoolean("shop.tool-upgrade-enabled", true);
-    }
-    
-    public int getToolUpgradePrice(String toolType, String level) {
-        return getInt("shop.tool-upgrade-prices." + toolType + "." + level, 4);
-    }
-    
+    public boolean isToolUpgradeEnabled() { return getBoolean("shop.tool-upgrade-enabled", true); }
+    public int getToolUpgradePrice(String toolType, String level) { return getInt("shop.tool-upgrade-prices." + toolType + "." + level, 4); }
     public String getNextToolLevel(String currentLevel) {
         switch (currentLevel) {
-            case "wood": return "stone";
-            case "stone": return "iron";
-            case "iron": return "diamond";
-            case "normal": return "efficiency1";
-            case "efficiency1": return "efficiency2";
+            case "wood": return "stone"; case "stone": return "iron"; case "iron": return "diamond";
+            case "normal": return "efficiency1"; case "efficiency1": return "efficiency2";
             default: return null;
         }
     }
@@ -906,236 +645,87 @@ public class SBAConfig implements IConfigurator {
     // ========== МЕТОДЫ ДЛЯ РАЗДЕЛЬНЫХ МАГАЗИНОВ ==========
 
     // ===== ОБЫЧНЫЙ МАГАЗИН (normal-shop) =====
-
     public int getNormalShopRows() {
         ConfigurationNode node = node("shop", "normal-shop", "rows");
-        if (!node.virtual()) {
-            return node.getInt();
-        }
-        return node("shop", "rows").getInt(6);
+        if (!node.virtual()) { return node.getInt(); }
+        return 6;
     }
 
     public int getNormalShopRenderActualRows() {
         ConfigurationNode node = node("shop", "normal-shop", "render-actual-rows");
-        if (!node.virtual()) {
-            return node.getInt();
-        }
-        return node("shop", "render-actual-rows").getInt(6);
+        if (!node.virtual()) { return node.getInt(); }
+        return 6;
     }
 
     public int getNormalShopRenderOffset() {
         ConfigurationNode node = node("shop", "normal-shop", "render-offset");
-        if (!node.virtual()) {
-            return node.getInt();
-        }
+        if (!node.virtual()) { return node.getInt(); }
         return node("shop", "render-offset").getInt(0);
     }
 
     public int getNormalShopRenderHeaderStart() {
         ConfigurationNode node = node("shop", "normal-shop", "render-header-start");
-        if (!node.virtual()) {
-            return node.getInt();
-        }
+        if (!node.virtual()) { return node.getInt(); }
         return node("shop", "render-header-start").getInt(9);
     }
 
     public int getNormalShopRenderFooterStart() {
         ConfigurationNode node = node("shop", "normal-shop", "render-footer-start");
-        if (!node.virtual()) {
-            return node.getInt();
-        }
+        if (!node.virtual()) { return node.getInt(); }
         return node("shop", "render-footer-start").getInt(600);
     }
 
     public int getNormalShopItemsOnRow() {
         ConfigurationNode node = node("shop", "normal-shop", "items-on-row");
-        if (!node.virtual()) {
-            return node.getInt();
-        }
+        if (!node.virtual()) { return node.getInt(); }
         return node("shop", "items-on-row").getInt(9);
     }
 
-    public String getNormalShopBack() {
-        String value = getString("shop.normal-shop.shopback");
-        if (value != null && !value.isEmpty()) {
-            return value;
-        }
-        return getString("shop.shopback", "BARRIER");
-    }
-
-    public String getNormalShopPageBack() {
-        String value = getString("shop.normal-shop.pageback");
-        if (value != null && !value.isEmpty()) {
-            return value;
-        }
-        return getString("shop.pageback", "ARROW");
-    }
-
-    public String getNormalShopPageForward() {
-        String value = getString("shop.normal-shop.pageforward");
-        if (value != null && !value.isEmpty()) {
-            return value;
-        }
-        return getString("shop.pageforward", "BARRIER");
-    }
-
-    public String getNormalShopName() {
-        String value = getString("shop.normal-shop.name");
-        if (value != null && !value.isEmpty()) {
-            return value;
-        }
-        return getString("shop.normal-shop.name", "[SBA] Item Shop");
-    }
-
-    public List<String> getNormalShopEntityName() {
-        List<String> list = getStringList("shop.normal-shop.entity-name");
-        if (list != null && !list.isEmpty()) {
-            return list;
-        }
-        return List.of("§bITEM SHOP", "§e§lRIGHT CLICK");
-    }
-
-    public ConfigurationNode getNormalShopSkin() {
-        ConfigurationNode node = node("shop", "normal-shop", "skin");
-        if (!node.virtual()) {
-            return node;
-        }
-        return node("shop", "normal-shop", "skin");
-    }
-
     // ===== МАГАЗИН УЛУЧШЕНИЙ (upgrade-shop) =====
-
     public int getUpgradeShopRows() {
         ConfigurationNode node = node("shop", "upgrade-shop", "rows");
-        if (!node.virtual()) {
-            return node.getInt();
-        }
-        return node("shop", "rows").getInt(3);
+        if (!node.virtual()) { return node.getInt(); }
+        return 3;
     }
 
     public int getUpgradeShopRenderActualRows() {
         ConfigurationNode node = node("shop", "upgrade-shop", "render-actual-rows");
-        if (!node.virtual()) {
-            return node.getInt();
-        }
-        return node("shop", "render-actual-rows").getInt(3);
+        if (!node.virtual()) { return node.getInt(); }
+        return 3;
     }
 
     public int getUpgradeShopRenderOffset() {
         ConfigurationNode node = node("shop", "upgrade-shop", "render-offset");
-        if (!node.virtual()) {
-            return node.getInt();
-        }
+        if (!node.virtual()) { return node.getInt(); }
         return node("shop", "render-offset").getInt(0);
     }
 
     public int getUpgradeShopRenderHeaderStart() {
         ConfigurationNode node = node("shop", "upgrade-shop", "render-header-start");
-        if (!node.virtual()) {
-            return node.getInt();
-        }
+        if (!node.virtual()) { return node.getInt(); }
         return node("shop", "render-header-start").getInt(9);
     }
 
     public int getUpgradeShopRenderFooterStart() {
         ConfigurationNode node = node("shop", "upgrade-shop", "render-footer-start");
-        if (!node.virtual()) {
-            return node.getInt();
-        }
+        if (!node.virtual()) { return node.getInt(); }
         return node("shop", "render-footer-start").getInt(600);
     }
 
     public int getUpgradeShopItemsOnRow() {
         ConfigurationNode node = node("shop", "upgrade-shop", "items-on-row");
-        if (!node.virtual()) {
-            return node.getInt();
-        }
+        if (!node.virtual()) { return node.getInt(); }
         return node("shop", "items-on-row").getInt(9);
-    }
-
-    public String getUpgradeShopBack() {
-        String value = getString("shop.upgrade-shop.shopback");
-        if (value != null && !value.isEmpty()) {
-            return value;
-        }
-        return getString("shop.shopback", "BARRIER");
-    }
-
-    public String getUpgradeShopPageBack() {
-        String value = getString("shop.upgrade-shop.pageback");
-        if (value != null && !value.isEmpty()) {
-            return value;
-        }
-        return getString("shop.pageback", "ARROW");
-    }
-
-    public String getUpgradeShopPageForward() {
-        String value = getString("shop.upgrade-shop.pageforward");
-        if (value != null && !value.isEmpty()) {
-            return value;
-        }
-        return getString("shop.pageforward", "BARRIER");
-    }
-
-    public String getUpgradeShopName() {
-        String value = getString("shop.upgrade-shop.name");
-        if (value != null && !value.isEmpty()) {
-            return value;
-        }
-        return getString("shop.upgrade-shop.name", "[SBA] Upgrade Shop");
-    }
-
-    public List<String> getUpgradeShopEntityName() {
-        List<String> list = getStringList("shop.upgrade-shop.entity-name");
-        if (list != null && !list.isEmpty()) {
-            return list;
-        }
-        return List.of("§bTEAM", "§bUPGRADES", "§e§lRIGHT CLICK");
-    }
-
-    public ConfigurationNode getUpgradeShopSkin() {
-        ConfigurationNode node = node("shop", "upgrade-shop", "skin");
-        if (!node.virtual()) {
-            return node;
-        }
-        return node("shop", "upgrade-shop", "skin");
     }
 
     // ===== СТАРЫЕ МЕТОДЫ (ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ) =====
-
-    public int getShopRows() {
-        return node("shop", "rows").getInt(6);
-    }
-
-    public int getShopRenderActualRows() {
-        return node("shop", "render-actual-rows").getInt(6);
-    }
-
-    public int getShopRenderOffset() {
-        return node("shop", "render-offset").getInt(0);
-    }
-
-    public int getShopRenderHeaderStart() {
-        return node("shop", "render-header-start").getInt(9);
-    }
-
-    public int getShopRenderFooterStart() {
-        return node("shop", "render-footer-start").getInt(600);
-    }
-
-    public int getShopItemsOnRow() {
-        return node("shop", "items-on-row").getInt(9);
-    }
-
-    public String getShopBack() {
-        return getString("shop.shopback", "BARRIER");
-    }
-
-    public String getShopPageBack() {
-        return getString("shop.pageback", "ARROW");
-    }
-
-    public String getShopPageForward() {
-        return getString("shop.pageforward", "BARRIER");
-    }
+    public int getShopRows() { return node("shop", "rows").getInt(6); }
+    public int getShopRenderActualRows() { return node("shop", "render-actual-rows").getInt(6); }
+    public int getShopRenderOffset() { return node("shop", "render-offset").getInt(0); }
+    public int getShopRenderHeaderStart() { return node("shop", "render-header-start").getInt(9); }
+    public int getShopRenderFooterStart() { return node("shop", "render-footer-start").getInt(600); }
+    public int getShopItemsOnRow() { return node("shop", "items-on-row").getInt(9); }
+    public String getShopBack() { return getString("shop.shopback", "BARRIER"); }
+    public String getShopPageBack() { return getString("shop.pageback", "ARROW"); }
+    public String getShopPageForward() { return getString("shop.pageforward", "BARRIER"); }
 }
