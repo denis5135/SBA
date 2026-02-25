@@ -548,36 +548,67 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
         final var store = event.getStore();
         final var shopFile = store.getShopFile();
         
-        Logger.trace("Shop opened - File: {}", shopFile);
-        
-        boolean isUpgradeShop = false;
+        // ДЛЯ ОТЛАДКИ - временно открываем как upgrade shop всё, что содержит upgrade в названии
+        Logger.info("========== SHOP OPEN DEBUG ==========");
+        Logger.info("Player: " + event.getPlayer().getName());
+        Logger.info("Shop file: " + shopFile);
+        Logger.info("Store class: " + store.getClass().getName());
         
         // Проверяем по имени файла
+        boolean isUpgradeShop = false;
+        
         if (shopFile != null) {
             String lowerFile = shopFile.toLowerCase();
             isUpgradeShop = lowerFile.contains("upgrade") || 
                            lowerFile.contains("upgrades") ||
                            lowerFile.equals("upgradeshop.yml");
+            Logger.info("File check: " + lowerFile + " -> " + isUpgradeShop);
+        } else {
+            Logger.info("Shop file is null!");
         }
         
+        // ВРЕМЕННО: открываем как upgrade shop, если имя файла содержит upgrade
         if (isUpgradeShop) {
-            Logger.trace("Opening upgrade shop for player: {}", event.getPlayer().getName());
-            event.setResult(BedwarsOpenShopEvent.Result.DISALLOW_UNKNOWN);
+            Logger.info("✓ Opening UPGRADE shop for player: " + event.getPlayer().getName());
             
-            if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
-                LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
-                return;
+            try {
+                event.setResult(BedwarsOpenShopEvent.Result.DISALLOW_UNKNOWN);
+                
+                if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
+                    LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
+                    Logger.info("✗ Player not in game");
+                    return;
+                }
+                
+                var game = Main.getInstance().getGameOfPlayer(event.getPlayer());
+                if (game == null) {
+                    Logger.info("✗ Game is null");
+                    return;
+                }
+                
+                if (game.getTeamOfPlayer(event.getPlayer()) == null) {
+                    LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
+                    Logger.info("✗ Player has no team");
+                    return;
+                }
+                
+                SBAUpgradeStoreInventory inventory = getInstance();
+                if (inventory == null) {
+                    Logger.info("✗ Inventory instance is null");
+                    return;
+                }
+                
+                inventory.openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
+                        (GameStore) store);
+                Logger.info("✓ Upgrade shop opened successfully");
+                
+            } catch (Exception e) {
+                Logger.error("Error opening upgrade shop: " + e.getMessage());
+                e.printStackTrace();
             }
-            
-            var game = Main.getInstance().getGameOfPlayer(event.getPlayer());
-            if (game == null || game.getTeamOfPlayer(event.getPlayer()) == null) {
-                LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
-                return;
-            }
-            
-            SBAUpgradeStoreInventory inventory = getInstance();
-            inventory.openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
-                    (GameStore) store);
+        } else {
+            Logger.info("✗ Not an upgrade shop, passing to normal shop handler");
         }
+        Logger.info("=====================================");
     }
 }
