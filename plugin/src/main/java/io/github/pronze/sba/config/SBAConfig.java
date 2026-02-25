@@ -849,8 +849,7 @@ public class SBAConfig implements IConfigurator {
         return Objects.requireNonNullElse(ItemStackFactory.build(def), ItemStackFactory.getAir());
     }
 
-    // ========== ИСПРАВЛЕННЫЕ МЕТОДЫ ДЛЯ УРОВНЕЙ ==========
-    // Теперь просто передают вызовы в новый LevelConfig
+    // ========== МЕТОДЫ ДЛЯ УРОВНЕЙ ==========
     
     public String getLevelPrefix(int level) {
         return LevelConfig.getInstance().getLevelPrefix(level);
@@ -860,7 +859,6 @@ public class SBAConfig implements IConfigurator {
         return LevelConfig.getInstance().getRequiredXP(level);
     }
 
-    // Эти методы больше не нужны, но оставляем для обратной совместимости
     public List<String> getLevelRewards(int level) {
         return new ArrayList<>();
     }
@@ -903,5 +901,149 @@ public class SBAConfig implements IConfigurator {
             case "efficiency1": return "efficiency2";
             default: return null;
         }
+    }
+    
+    // ========== НОВЫЕ МЕТОДЫ ДЛЯ РАЗДЕЛЬНЫХ МАГАЗИНОВ ==========
+    
+    // ===== ОБЫЧНЫЙ МАГАЗИН (normal-shop) =====
+    
+    public int getNormalShopRows() {
+        // Пробуем прочитать из normal-shop.rows, если нет - из shop.rows
+        return node("shop", "normal-shop", "rows").getInt(node("shop", "rows").getInt(6));
+    }
+    
+    public int getNormalShopRenderActualRows() {
+        return node("shop", "normal-shop", "render-actual-rows").getInt(node("shop", "render-actual-rows").getInt(6));
+    }
+    
+    public int getNormalShopRenderOffset() {
+        return node("shop", "normal-shop", "render-offset").getInt(node("shop", "render-offset").getInt(0));
+    }
+    
+    public int getNormalShopRenderHeaderStart() {
+        return node("shop", "normal-shop", "render-header-start").getInt(node("shop", "render-header-start").getInt(9));
+    }
+    
+    public int getNormalShopRenderFooterStart() {
+        return node("shop", "normal-shop", "render-footer-start").getInt(node("shop", "render-footer-start").getInt(600));
+    }
+    
+    public int getNormalShopItemsOnRow() {
+        return node("shop", "normal-shop", "items-on-row").getInt(node("shop", "items-on-row").getInt(9));
+    }
+    
+    public String getNormalShopBack() {
+        return getString("shop.normal-shop.shopback", getString("shop.shopback", "BARRIER"));
+    }
+    
+    public String getNormalShopPageBack() {
+        return getString("shop.normal-shop.pageback", getString("shop.pageback", "ARROW"));
+    }
+    
+    public String getNormalShopPageForward() {
+        return getString("shop.normal-shop.pageforward", getString("shop.pageforward", "BARRIER"));
+    }
+    
+    public String getNormalShopName() {
+        return getString("shop.normal-shop.name", getString("shop.normal-shop.name", "[SBA] Item Shop"));
+    }
+    
+    public List<String> getNormalShopEntityName() {
+        List<String> def = List.of("§bITEM SHOP", "§e§lRIGHT CLICK");
+        return getStringList("shop.normal-shop.entity-name");
+    }
+    
+    public ConfigurationNode getNormalShopSkin() {
+        return node("shop", "normal-shop", "skin");
+    }
+    
+    // ===== МАГАЗИН УЛУЧШЕНИЙ (upgrade-shop) =====
+    
+    public int getUpgradeShopRows() {
+        // Пробуем прочитать из upgrade-shop.rows, если нет - из shop.rows (с дефолтом 3)
+        return node("shop", "upgrade-shop", "rows").getInt(node("shop", "rows").getInt(3));
+    }
+    
+    public int getUpgradeShopRenderActualRows() {
+        return node("shop", "upgrade-shop", "render-actual-rows").getInt(node("shop", "render-actual-rows").getInt(3));
+    }
+    
+    public int getUpgradeShopRenderOffset() {
+        return node("shop", "upgrade-shop", "render-offset").getInt(node("shop", "render-offset").getInt(0));
+    }
+    
+    public int getUpgradeShopRenderHeaderStart() {
+        return node("shop", "upgrade-shop", "render-header-start").getInt(node("shop", "render-header-start").getInt(9));
+    }
+    
+    public int getUpgradeShopRenderFooterStart() {
+        return node("shop", "upgrade-shop", "render-footer-start").getInt(node("shop", "render-footer-start").getInt(600));
+    }
+    
+    public int getUpgradeShopItemsOnRow() {
+        return node("shop", "upgrade-shop", "items-on-row").getInt(node("shop", "items-on-row").getInt(9));
+    }
+    
+    public String getUpgradeShopBack() {
+        return getString("shop.upgrade-shop.shopback", getString("shop.shopback", "BARRIER"));
+    }
+    
+    public String getUpgradeShopPageBack() {
+        return getString("shop.upgrade-shop.pageback", getString("shop.pageback", "ARROW"));
+    }
+    
+    public String getUpgradeShopPageForward() {
+        return getString("shop.upgrade-shop.pageforward", getString("shop.pageforward", "BARRIER"));
+    }
+    
+    public String getUpgradeShopName() {
+        return getString("shop.upgrade-shop.name", getString("shop.upgrade-shop.name", "[SBA] Upgrade Shop"));
+    }
+    
+    public List<String> getUpgradeShopEntityName() {
+        List<String> def = List.of("§bTEAM", "§bUPGRADES", "§e§lRIGHT CLICK");
+        return getStringList("shop.upgrade-shop.entity-name");
+    }
+    
+    public ConfigurationNode getUpgradeShopSkin() {
+        return node("shop", "upgrade-shop", "skin");
+    }
+    
+    // ===== СТАРЫЕ МЕТОДЫ (ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ) =====
+    
+    public int getShopRows() {
+        return node("shop", "rows").getInt(6);
+    }
+    
+    public int getShopRenderActualRows() {
+        return node("shop", "render-actual-rows").getInt(6);
+    }
+    
+    public int getShopRenderOffset() {
+        return node("shop", "render-offset").getInt(0);
+    }
+    
+    public int getShopRenderHeaderStart() {
+        return node("shop", "render-header-start").getInt(9);
+    }
+    
+    public int getShopRenderFooterStart() {
+        return node("shop", "render-footer-start").getInt(600);
+    }
+    
+    public int getShopItemsOnRow() {
+        return node("shop", "items-on-row").getInt(9);
+    }
+    
+    public String getShopBack() {
+        return getString("shop.shopback", "BARRIER");
+    }
+    
+    public String getShopPageBack() {
+        return getString("shop.pageback", "ARROW");
+    }
+    
+    public String getShopPageForward() {
+        return getString("shop.pageforward", "BARRIER");
     }
 }
