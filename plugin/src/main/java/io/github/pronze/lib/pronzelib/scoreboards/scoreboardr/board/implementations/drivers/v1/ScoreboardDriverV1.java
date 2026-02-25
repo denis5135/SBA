@@ -140,28 +140,42 @@ public class ScoreboardDriverV1 implements IBoard {
                         t.addEntry(ChatColor.values()[i] + "");
                         this.objective.getScore(ChatColor.values()[i] + "").setScore(score);
                     } catch (Throwable tr) {
-
+                        Logger.error("Failed to create team for line " + i + ": " + tr.getMessage());
                     }
                 } else {
                     try {
                         this.objective.getScore(ChatColor.values()[i] + "").setScore(score);
                     } catch (Throwable tr) {
-
+                        Logger.error("Failed to set score for line " + i + ": " + tr.getMessage());
                     }
                 }
                 score--;
-
             }
-            for (int i = board.getTeams().size() - 1; i >= this.lines; i--) {
-                Team team = board.getTeam(i + "");
-                if (team != null)
-                    team.unregister();
+            
+            // ДОБАВЛЕНА ПРОВЕРКА НА NULL
+            if (board.getTeams() != null) {
+                for (int i = board.getTeams().size() - 1; i >= this.lines; i--) {
+                    Team team = board.getTeam(i + "");
+                    if (team != null) {
+                        try {
+                            team.unregister();
+                        } catch (Throwable tr) {
+                            Logger.error("Failed to unregister team: " + tr.getMessage());
+                        }
+                    }
+                }
+            } else {
+                Logger.warn("board.getTeams() returned null for player " + player.getName());
             }
+        } else {
+            Logger.warn("Board is null in createTeams() for player " + (player != null ? player.getName() : "unknown"));
         }
     }
 
     private void setBoard() {
-        this.player.setScoreboard(this.board);
+        if (this.player != null && this.board != null) {
+            this.player.setScoreboard(this.board);
+        }
     }
 
     @Override
@@ -181,20 +195,23 @@ public class ScoreboardDriverV1 implements IBoard {
     }
 
     public boolean hasTeamEntry(String invisTeamName) {
-        return this.board.getTeam(invisTeamName) != null;
+        return this.board != null && this.board.getTeam(invisTeamName) != null;
     }
 
     public Team addTeam(String invisTeamName, ChatColor chatColor) {
+        if (this.board == null) return null;
         Team t = this.board.registerNewTeam(invisTeamName);
         // t.setColor(chatColor);
         return t;
     }
 
     public Optional<Team> getTeamEntry(String invisTeamName) {
+        if (this.board == null) return Optional.empty();
         return Optional.ofNullable(this.board.getTeam(invisTeamName));
     }
 
     public Team getTeamOrRegister(String invisTeamName) {
+        if (this.board == null) return null;
         Team t = this.board.getTeam(invisTeamName);
         if (t == null)
             try {
@@ -205,5 +222,4 @@ public class ScoreboardDriverV1 implements IBoard {
             }
         return t;
     }
-
 }
