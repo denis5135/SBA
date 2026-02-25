@@ -547,9 +547,8 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
     public void onBedWarsOpenShop(BedwarsOpenShopEvent event) {
         final var store = event.getStore();
         final var shopFile = store.getShopFile();
-        final var shopName = store.getName();
         
-        Logger.trace("Shop opened - File: {}, Name: {}", shopFile, shopName);
+        Logger.trace("Shop opened - File: {}", shopFile);
         
         boolean isUpgradeShop = false;
         
@@ -559,21 +558,6 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
             isUpgradeShop = lowerFile.contains("upgrade") || 
                            lowerFile.contains("upgrades") ||
                            lowerFile.equals("upgradeshop.yml");
-        }
-        
-        // Проверяем по названию магазина
-        if (!isUpgradeShop && shopName != null) {
-            String lowerName = shopName.toLowerCase();
-            isUpgradeShop = lowerName.contains("upgrade") || 
-                           lowerName.contains("улучш") ||
-                           lowerName.contains("прокач") ||
-                           lowerName.contains("team upgrade");
-        }
-        
-        // Проверяем по содержимому (если есть предметы с свойствами улучшений)
-        if (!isUpgradeShop && store.getShopFile() != null) {
-            // Дополнительная проверка - может быть в конфиге арены указан другой файл
-            isUpgradeShop = true; // Временно включаем для теста
         }
         
         if (isUpgradeShop) {
