@@ -461,12 +461,7 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
 
     @Override
     public @NotNull InventorySetBuilder getInventorySetBuilder() {
-        // Получаем размер из конфига
-        int rows = getShopRows();
-        int actualRows = getShopRenderActualRows();
-        
-        Logger.info("Building upgrade shop with rows: " + rows + ", actual rows: " + actualRows);
-        
+        // ПРИНУДИТЕЛЬНО устанавливаем размер 3 строки для магазина улучшений
         return SimpleInventoriesCore
                 .builder()
                 .categoryOptions(localOptionsBuilder -> localOptionsBuilder
@@ -488,13 +483,14 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                         .cosmeticItem(SBAConfig.getInstance().readDefinedItem(
                                 SBAConfig.getInstance().node("shop", "shopcosmetic"),
                                 "GRAY_STAINED_GLASS_PANE"))
-                        .rows(rows)  // Используем полученный размер
-                        .renderActualRows(actualRows)  // Используем полученный размер
-                        .renderOffset(SBAConfig.getInstance().getShopRenderOffset())
-                        .renderHeaderStart(SBAConfig.getInstance().getShopRenderHeaderStart())
-                        .renderFooterStart(SBAConfig.getInstance().getShopRenderFooterStart())
-                        .itemsOnRow(SBAConfig.getInstance().getShopItemsOnRow())
-                        .showPageNumber(SBAConfig.getInstance().node("shop", "show-page-numbers").getBoolean(false))
+                        // ПРИНУДИТЕЛЬНЫЕ ЗНАЧЕНИЯ ДЛЯ МАГАЗИНА УЛУЧШЕНИЙ
+                        .rows(3)                       // <- 3 строки
+                        .renderActualRows(3)            // <- 3 строки
+                        .renderOffset(0)
+                        .renderHeaderStart(9)
+                        .renderFooterStart(600)
+                        .itemsOnRow(9)
+                        .showPageNumber(false)
                         .inventoryType("CHEST")
                         .prefix(LanguageService.getInstance().get(MessageKeys.SHOP_NAME).toComponent()))
                 .allowAccessToConsole(true)
@@ -506,37 +502,32 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
 
     @Override
     public int getShopRows() {
-        // Прямое обращение к конфигу
-        int rows = SBAConfig.getInstance().getUpgradeShopRows();
-        Logger.info("SBAUpgradeStoreInventory.getShopRows() returned: " + rows);
-        return rows;
+        return 3; // Всегда возвращаем 3
     }
     
     @Override
     public int getShopRenderActualRows() {
-        int rows = SBAConfig.getInstance().getUpgradeShopRenderActualRows();
-        Logger.info("SBAUpgradeStoreInventory.getShopRenderActualRows() returned: " + rows);
-        return rows;
+        return 3; // Всегда возвращаем 3
     }
     
     @Override
     public int getShopRenderOffset() {
-        return SBAConfig.getInstance().getUpgradeShopRenderOffset();
+        return 0;
     }
     
     @Override
     public int getShopRenderHeaderStart() {
-        return SBAConfig.getInstance().getUpgradeShopRenderHeaderStart();
+        return 9;
     }
     
     @Override
     public int getShopRenderFooterStart() {
-        return SBAConfig.getInstance().getUpgradeShopRenderFooterStart();
+        return 600;
     }
     
     @Override
     public int getShopItemsOnRow() {
-        return SBAConfig.getInstance().getUpgradeShopItemsOnRow();
+        return 9;
     }
     
     @Override
@@ -559,10 +550,6 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
         final var store = event.getStore();
         final var shopFile = store.getShopFile();
         
-        Logger.info("========== SHOP OPEN DEBUG ==========");
-        Logger.info("Player: " + event.getPlayer().getName());
-        Logger.info("Shop file: " + shopFile);
-        
         boolean isUpgradeShop = false;
         
         if (shopFile != null) {
@@ -570,48 +557,25 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
             isUpgradeShop = lowerFile.contains("upgrade") || 
                            lowerFile.contains("upgrades") ||
                            lowerFile.equals("upgradeshop.yml");
-            Logger.info("File check: " + lowerFile + " -> " + isUpgradeShop);
         }
         
         if (isUpgradeShop) {
-            Logger.info("✓ Opening UPGRADE shop for player: " + event.getPlayer().getName());
+            event.setResult(BedwarsOpenShopEvent.Result.DISALLOW_UNKNOWN);
             
-            try {
-                event.setResult(BedwarsOpenShopEvent.Result.DISALLOW_UNKNOWN);
-                
-                if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
-                    LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
-                    Logger.info("✗ Player not in game");
-                    return;
-                }
-                
-                var game = Main.getInstance().getGameOfPlayer(event.getPlayer());
-                if (game == null) {
-                    Logger.info("✗ Game is null");
-                    return;
-                }
-                
-                if (game.getTeamOfPlayer(event.getPlayer()) == null) {
-                    LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
-                    Logger.info("✗ Player has no team");
-                    return;
-                }
-                
-                SBAUpgradeStoreInventory inventory = getInstance();
-                if (inventory == null) {
-                    Logger.info("✗ Inventory instance is null");
-                    return;
-                }
-                
-                inventory.openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
-                        (GameStore) store);
-                Logger.info("✓ Upgrade shop opened successfully");
-                
-            } catch (Exception e) {
-                Logger.error("Error opening upgrade shop: " + e.getMessage());
-                e.printStackTrace();
+            if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
+                LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
+                return;
             }
+            
+            var game = Main.getInstance().getGameOfPlayer(event.getPlayer());
+            if (game == null || game.getTeamOfPlayer(event.getPlayer()) == null) {
+                LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
+                return;
+            }
+            
+            SBAUpgradeStoreInventory inventory = getInstance();
+            inventory.openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
+                    (GameStore) store);
         }
-        Logger.info("=====================================");
     }
 }
