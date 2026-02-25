@@ -147,7 +147,6 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
 
     @Override
     public boolean isUpgradeShop() {
-        // Этот метод должен быть переопределён в конкретном экземпляре
         // По умолчанию false - обычный магазин
         return false;
     }
@@ -969,15 +968,8 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
             return;
         }
         
-        // Создаём экземпляр с правильным типом магазина
-        SBAStoreInventoryV2 inventory = new SBAStoreInventoryV2(SBA.getInstance().getControllable()) {
-            @Override
-            public boolean isUpgradeShop() {
-                // Определяем тип магазина по названию файла
-                String fileName = event.getStore().getShopFile();
-                return fileName != null && fileName.toLowerCase().contains("upgrade");
-            }
-        };
+        // Используем существующий экземпляр, не создаём новый
+        SBAStoreInventoryV2 inventory = getInstance();
         
         inventory.openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
                 (GameStore) event.getStore());
