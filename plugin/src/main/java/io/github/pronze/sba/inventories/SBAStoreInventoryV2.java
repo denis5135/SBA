@@ -612,7 +612,7 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                                 if (types.contains(material)) {
                                     if (spawner.getTeam() != null
                                             && spawner.getTeam().getName().equals(team.getName())) {
-                                        if (spawner.getCurrentLevel() < maxLevel)
+                                        if (spawner.getCurrentLevel() < maxLevel || maxLevel == 0)
                                             spawnersToUpgrade.add(spawner);
                                     }
                                 }
@@ -639,7 +639,7 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                                     }
                                     if (closestSpawner != null) {
                                         double newLevel = closestSpawner.getCurrentLevel();
-                                        if (newLevel < maxLevelF)
+                                        if (newLevel < maxLevelF || maxLevelF == 0)
                                             spawnersToUpgrade.add(closestSpawner);
                                     }
                                 });
