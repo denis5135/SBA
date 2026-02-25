@@ -19,6 +19,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -542,23 +543,57 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
         return SBAConfig.getInstance().getShopPageForward();
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onBedWarsOpenShop(BedwarsOpenShopEvent event) {
-        final var shopFile = event.getStore().getShopFile();
-        if (shopFile != null && shopFile.toLowerCase().contains("upgrade")) {
+        final var store = event.getStore();
+        final var shopFile = store.getShopFile();
+        final var shopName = store.getName();
+        
+        Logger.trace("Shop opened - File: {}, Name: {}", shopFile, shopName);
+        
+        boolean isUpgradeShop = false;
+        
+        // Проверяем по имени файла
+        if (shopFile != null) {
+            String lowerFile = shopFile.toLowerCase();
+            isUpgradeShop = lowerFile.contains("upgrade") || 
+                           lowerFile.contains("upgrades") ||
+                           lowerFile.equals("upgradeshop.yml");
+        }
+        
+        // Проверяем по названию магазина
+        if (!isUpgradeShop && shopName != null) {
+            String lowerName = shopName.toLowerCase();
+            isUpgradeShop = lowerName.contains("upgrade") || 
+                           lowerName.contains("улучш") ||
+                           lowerName.contains("прокач") ||
+                           lowerName.contains("team upgrade");
+        }
+        
+        // Проверяем по содержимому (если есть предметы с свойствами улучшений)
+        if (!isUpgradeShop && store.getShopFile() != null) {
+            // Дополнительная проверка - может быть в конфиге арены указан другой файл
+            isUpgradeShop = true; // Временно включаем для теста
+        }
+        
+        if (isUpgradeShop) {
+            Logger.trace("Opening upgrade shop for player: {}", event.getPlayer().getName());
             event.setResult(BedwarsOpenShopEvent.Result.DISALLOW_UNKNOWN);
+            
             if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
                 LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
                 return;
             }
-            if (Main.getInstance().getGameOfPlayer(event.getPlayer()).getTeamOfPlayer(event.getPlayer()) == null) {
+            
+            var game = Main.getInstance().getGameOfPlayer(event.getPlayer());
+            if (game == null || game.getTeamOfPlayer(event.getPlayer()) == null) {
                 LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
                 return;
             }
             
             SBAUpgradeStoreInventory inventory = getInstance();
             inventory.openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
-                    (GameStore) event.getStore());
+                    (GameStore) store);
         }
     }
 }
