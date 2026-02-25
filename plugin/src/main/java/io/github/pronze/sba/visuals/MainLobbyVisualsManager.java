@@ -70,8 +70,8 @@ public class MainLobbyVisualsManager implements Listener {
         enabled = true;
         SBAUtil.readLocationFromConfig("main-lobby").ifPresentOrElse(location -> {
             MainLobbyVisualsManager.location = location;
-            Bukkit.getScheduler().runTaskLater(SBA.getPluginInstance(),
-                    () -> Bukkit.getOnlinePlayers().forEach(this::create), 3L);
+            // Создаем скорборды для всех онлайн игроков мгновенно
+            Bukkit.getOnlinePlayers().forEach(this::create);
         }, () -> {
             disable();
             Bukkit.getServer().getLogger().warning("Could not find lobby world!");
@@ -153,7 +153,6 @@ public class MainLobbyVisualsManager implements Listener {
             }
             updateTasks.clear();
             
-            // Уничтожаем все скорборды
             for (Scoreboard board : scoreboardMap.values()) {
                 if (board != null) {
                     try {
@@ -176,15 +175,14 @@ public class MainLobbyVisualsManager implements Listener {
 
         final var player = e.getPlayer();
 
+        // Уменьшаем задержку с 20 до 2 тиков (0.1 секунды)
         Bukkit.getServer().getScheduler().runTaskLater(SBA.getPluginInstance(), () -> {
             try {
                 if (player != null && player.isOnline() && 
                     isInWorld(player.getLocation()) && !Main.isPlayerInGame(player)) {
                     
-                    // Сначала удаляем старый скорборд из кэша
                     ScoreboardManager.getInstance().removeFromCache(player.getUniqueId());
                     
-                    // Создаем новый
                     if (!scoreboardMap.containsKey(player)) {
                         create(player);
                     }
@@ -192,7 +190,7 @@ public class MainLobbyVisualsManager implements Listener {
             } catch (Exception ex) {
                 Logger.error("Error in player join: " + ex.getMessage());
             }
-        }, 20L);
+        }, 2L); // Было 20L, стало 2L
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -203,25 +201,22 @@ public class MainLobbyVisualsManager implements Listener {
         try {
             if (player != null && player.isOnline()) {
                 if (isInWorld(player.getLocation()) && !Main.isPlayerInGame(player)) {
-                    // При входе в лобби - создаем скорборд
+                    // Мгновенное создание при входе в мир лобби
                     if (!scoreboardMap.containsKey(player)) {
                         create(player);
                     } else {
-                        // Делаем существующий скорборд видимым
                         Scoreboard board = scoreboardMap.get(player);
                         if (board != null) {
                             try {
                                 board.setVisibility(true);
                                 board.refresh();
                             } catch (Exception ex) {
-                                // Если ошибка - создаем новый
                                 destroyPlayerBoard(player);
                                 create(player);
                             }
                         }
                     }
                 } else {
-                    // Выход из лобби - скрываем скорборд, но не удаляем
                     Scoreboard board = scoreboardMap.get(player);
                     if (board != null) {
                         try {
@@ -241,13 +236,11 @@ public class MainLobbyVisualsManager implements Listener {
     public void onPlayerLeave(PlayerQuitEvent e) {
         Player player = e.getPlayer();
         
-        // Отменяем задачу обновления
         BukkitTask task = updateTasks.remove(player);
         if (task != null && !task.isCancelled()) {
             task.cancel();
         }
         
-        // Удаляем из мапы
         Scoreboard board = scoreboardMap.remove(player);
         if (board != null) {
             try {
@@ -273,7 +266,6 @@ public class MainLobbyVisualsManager implements Listener {
             task.cancel();
         }
         
-        // Очищаем кэш менеджера
         ScoreboardManager.getInstance().removeFromCache(player.getUniqueId());
     }
 
@@ -381,7 +373,6 @@ public class MainLobbyVisualsManager implements Listener {
                     return;
                 }
                 
-                // Проверяем, должен ли скорборд быть видимым
                 if (!isInWorld(player.getLocation()) || Main.isPlayerInGame(player)) {
                     return;
                 }
@@ -389,23 +380,20 @@ public class MainLobbyVisualsManager implements Listener {
                 Scoreboard board = scoreboardMap.get(player);
                 if (board != null) {
                     try {
-                        // Убеждаемся, что скорборд видим
                         board.setVisibility(true);
                         board.refresh();
                     } catch (Exception e) {
-                        // Если ошибка, пробуем пересоздать
                         Logger.error("Error refreshing scoreboard for " + player.getName() + ": " + e.getMessage());
                         destroyPlayerBoard(player);
                         create(player);
                     }
                 } else {
-                    // Если скорборда нет, создаем новый
                     create(player);
                 }
             } catch (Exception e) {
                 Logger.error("Error in auto-update for " + player.getName() + ": " + e.getMessage());
             }
-        }, 100L, 100L);
+        }, 20L, 20L); // Первое обновление через 1 секунду, потом каждую секунду
 
         updateTasks.put(player, task);
     }
@@ -415,7 +403,6 @@ public class MainLobbyVisualsManager implements Listener {
         if (player == null || !player.isOnline()) return;
         if (!isInWorld(player.getLocation())) return;
         
-        // Сначала удаляем старый скорборд
         destroyPlayerBoard(player);
         
         try {
@@ -581,15 +568,13 @@ public class MainLobbyVisualsManager implements Listener {
         if (!enabled) return;
         if (player == null) return;
             
+        // Уменьшаем задержку с 40 до 5 тиков
         Bukkit.getScheduler().runTaskLater(SBA.getPluginInstance(), () -> {
             try {
                 if (player != null && player.isOnline() && 
                     isInWorld(player.getLocation()) && !Main.isPlayerInGame(player)) {
                     
-                    // Полностью удаляем старый скорборд
                     destroyPlayerBoard(player);
-                    
-                    // Создаем новый
                     create(player);
                     
                     Logger.trace("Scoreboard recreated for player " + player.getName() + " after game");
@@ -597,6 +582,6 @@ public class MainLobbyVisualsManager implements Listener {
             } catch (Exception ex) {
                 Logger.error("Error recreating scoreboard for " + player.getName() + ": " + ex.getMessage());
             }
-        }, 40L); // Увеличил задержку для надежности
+        }, 5L); // Было 40L, стало 5L
     }
 }
