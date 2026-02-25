@@ -145,6 +145,13 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
         // do nothing here
     }
 
+    @Override
+    public boolean isUpgradeShop() {
+        // Этот метод должен быть переопределён в конкретном экземпляре
+        // По умолчанию false - обычный магазин
+        return false;
+    }
+
     public Map.Entry<Boolean, Boolean> handlePurchase(Player player, AtomicReference<ItemStack> newItem,
             AtomicReference<org.screamingsandals.lib.item.ItemStack> materialItem, PlayerItemInfo itemInfo,
             ItemSpawnerType type, AtomicReference<String[]> messageOnFail) {
@@ -800,31 +807,28 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 .categoryOptions(localOptionsBuilder -> localOptionsBuilder
                         .backItem(
                                 SBAConfig.getInstance().readDefinedItem(
-                                        SBAConfig.getInstance().node("shop", "shopback"), "BARRIER"),
+                                        SBAConfig.getInstance().node("shop", getShopBackPath()), "BARRIER"),
                                 itemBuilder -> itemBuilder.name(
                                         LanguageService.getInstance().get(MessageKeys.SHOP_PAGE_BACK).toComponent()))
                         .pageBackItem(
                                 SBAConfig.getInstance().readDefinedItem(
-                                        SBAConfig.getInstance().node("shop", "pageback"), "ARROW"),
+                                        SBAConfig.getInstance().node("shop", getShopPageBackPath()), "ARROW"),
                                 itemBuilder -> itemBuilder.name(
                                         LanguageService.getInstance().get(MessageKeys.SHOP_PAGE_BACK).toComponent()))
                         .pageForwardItem(
                                 SBAConfig.getInstance().readDefinedItem(
-                                        SBAConfig.getInstance().node("shop", "pageforward"), "BARRIER"),
+                                        SBAConfig.getInstance().node("shop", getShopPageForwardPath()), "BARRIER"),
                                 itemBuilder -> itemBuilder.name(
                                         LanguageService.getInstance().get(MessageKeys.SHOP_PAGE_FORWARD).toComponent()))
                         .cosmeticItem(SBAConfig.getInstance().readDefinedItem(
                                 SBAConfig.getInstance().node("shop", "shopcosmetic"),
                                 "GRAY_STAINED_GLASS_PANE"))
-                        .rows(SBAConfig.getInstance().node("shop", "rows").getInt(6))
-                        .renderActualRows(
-                                SBAConfig.getInstance().node("shop", "render-actual-rows").getInt(6))
-                        .renderOffset(SBAConfig.getInstance().node("shop", "render-offset").getInt(0))
-                        .renderHeaderStart(
-                                SBAConfig.getInstance().node("shop", "render-header-start").getInt(9))
-                        .renderFooterStart(
-                                SBAConfig.getInstance().node("shop", "render-footer-start").getInt(600))
-                        .itemsOnRow(SBAConfig.getInstance().node("shop", "items-on-row").getInt(9))
+                        .rows(getShopRows())
+                        .renderActualRows(getShopRenderActualRows())
+                        .renderOffset(getShopRenderOffset())
+                        .renderHeaderStart(getShopRenderHeaderStart())
+                        .renderFooterStart(getShopRenderFooterStart())
+                        .itemsOnRow(getShopItemsOnRow())
                         .showPageNumber(SBAConfig.getInstance().node("shop", "show-page-numbers")
                                 .getBoolean(false))
                         .inventoryType(SBAConfig.getInstance().node("shop", "inventory-type")
@@ -838,6 +842,113 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 .variableToProperty("generate-lore", "generateLore")
                 .variableToProperty("generated-lore-text", "generatedLoreText")
                 .variableToProperty("currency-changer", "currencyChanger");
+    }
+
+    // ===== НОВЫЕ МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ НАСТРОЕК МАГАЗИНА =====
+    
+    private String getShopBackPath() {
+        if (isUpgradeShop()) {
+            return "upgrade-shop.shopback";
+        } else {
+            return "normal-shop.shopback";
+        }
+    }
+    
+    private String getShopPageBackPath() {
+        if (isUpgradeShop()) {
+            return "upgrade-shop.pageback";
+        } else {
+            return "normal-shop.pageback";
+        }
+    }
+    
+    private String getShopPageForwardPath() {
+        if (isUpgradeShop()) {
+            return "upgrade-shop.pageforward";
+        } else {
+            return "normal-shop.pageforward";
+        }
+    }
+    
+    @Override
+    public int getShopRows() {
+        if (isUpgradeShop()) {
+            return SBAConfig.getInstance().getUpgradeShopRows();
+        } else {
+            return SBAConfig.getInstance().getNormalShopRows();
+        }
+    }
+    
+    @Override
+    public int getShopRenderActualRows() {
+        if (isUpgradeShop()) {
+            return SBAConfig.getInstance().getUpgradeShopRenderActualRows();
+        } else {
+            return SBAConfig.getInstance().getNormalShopRenderActualRows();
+        }
+    }
+    
+    @Override
+    public int getShopRenderOffset() {
+        if (isUpgradeShop()) {
+            return SBAConfig.getInstance().getUpgradeShopRenderOffset();
+        } else {
+            return SBAConfig.getInstance().getNormalShopRenderOffset();
+        }
+    }
+    
+    @Override
+    public int getShopRenderHeaderStart() {
+        if (isUpgradeShop()) {
+            return SBAConfig.getInstance().getUpgradeShopRenderHeaderStart();
+        } else {
+            return SBAConfig.getInstance().getNormalShopRenderHeaderStart();
+        }
+    }
+    
+    @Override
+    public int getShopRenderFooterStart() {
+        if (isUpgradeShop()) {
+            return SBAConfig.getInstance().getUpgradeShopRenderFooterStart();
+        } else {
+            return SBAConfig.getInstance().getNormalShopRenderFooterStart();
+        }
+    }
+    
+    @Override
+    public int getShopItemsOnRow() {
+        if (isUpgradeShop()) {
+            return SBAConfig.getInstance().getUpgradeShopItemsOnRow();
+        } else {
+            return SBAConfig.getInstance().getNormalShopItemsOnRow();
+        }
+    }
+    
+    @Override
+    public String getShopBack() {
+        if (isUpgradeShop()) {
+            return SBAConfig.getInstance().getUpgradeShopBack();
+        } else {
+            return SBAConfig.getInstance().getNormalShopBack();
+        }
+    }
+    
+    @Override
+    public String getShopPageBack() {
+        if (isUpgradeShop()) {
+            return SBAConfig.getInstance().getUpgradeShopPageBack();
+        } else {
+            return SBAConfig.getInstance().getNormalShopPageBack();
+        }
+    }
+    
+    @Override
+    public String getShopPageForward() {
+        if (isUpgradeShop()) {
+            return SBAConfig.getInstance().getUpgradeShopPageForward();
+        } else {
+            return SBAConfig.getInstance().getNormalShopPageForward();
+        }
     }
 
     @EventHandler
@@ -857,7 +968,18 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                     .send(Players.wrapPlayer(event.getPlayer()));
             return;
         }
-        openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
+        
+        // Создаём экземпляр с правильным типом магазина
+        SBAStoreInventoryV2 inventory = new SBAStoreInventoryV2(SBA.getInstance().getControllable()) {
+            @Override
+            public boolean isUpgradeShop() {
+                // Определяем тип магазина по названию файла
+                String fileName = event.getStore().getShopFile();
+                return fileName != null && fileName.toLowerCase().contains("upgrade");
+            }
+        };
+        
+        inventory.openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
                 (GameStore) event.getStore());
     }
 }
