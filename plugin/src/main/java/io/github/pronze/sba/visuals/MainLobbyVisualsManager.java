@@ -41,7 +41,7 @@ public class MainLobbyVisualsManager implements Listener {
     private final Map<Player, Scoreboard> scoreboardMap = new HashMap<>();
     private final Map<Player, BukkitTask> updateTasks = new HashMap<>();
     private boolean enabled;
-    private boolean debugMode = false; // Включи в true только для отладки
+    private boolean debugMode = false;
 
     public static MainLobbyVisualsManager getInstance() {
         return ServiceManager.get(MainLobbyVisualsManager.class);
@@ -107,13 +107,11 @@ public class MainLobbyVisualsManager implements Listener {
                 return;
             
             try {
-                // Используем формат чата из language.yml
                 var chatFormat = LanguageService.getInstance()
                         .get(MessageKeys.MAIN_LOBBY_CHAT_FORMAT)
                         .toString();
 
                 if (chatFormat != null) {
-                    // Получаем уровень из новой системы
                     var levelManager = PlayerLevelManager.getInstance();
                     int playerLevel = levelManager.getPlayerLevel(player);
                     String playerPrefix = levelManager.getPlayerPrefix(player);
@@ -146,7 +144,6 @@ public class MainLobbyVisualsManager implements Listener {
     @OnPreDisable
     public void disable() {
         try {
-            // Отменяем все задачи обновления
             for (BukkitTask task : updateTasks.values()) {
                 if (task != null && !task.isCancelled()) {
                     task.cancel();
@@ -154,8 +151,7 @@ public class MainLobbyVisualsManager implements Listener {
             }
             updateTasks.clear();
             
-            // Безопасно удаляем все скорборды
-            new ArrayList<>(scoreboardMap.keySet()).forEach(this::remove);
+            // Не удаляем скорборды при отключении, просто очищаем мапы
             scoreboardMap.clear();
         } catch (Exception e) {
             Logger.error("Error disabling MainLobbyVisualsManager: " + e.getMessage());
@@ -172,10 +168,11 @@ public class MainLobbyVisualsManager implements Listener {
 
         Bukkit.getServer().getScheduler().runTaskLater(SBA.getPluginInstance(), () -> {
             try {
-                if (hasMainLobbyObjective(player))
-                    return;
                 if (isInWorld(player.getLocation()) && !Main.isPlayerInGame(player) && player.isOnline()) {
-                    create(player);
+                    // Проверяем, есть ли уже скорборд
+                    if (!scoreboardMap.containsKey(player)) {
+                        create(player);
+                    }
                 }
             } catch (Exception ex) {
                 Logger.error("Error in player join: " + ex.getMessage());
@@ -190,10 +187,20 @@ public class MainLobbyVisualsManager implements Listener {
 
         final var player = e.getPlayer();
         try {
-            if (player.isOnline() && isInWorld(player.getLocation()) && !scoreboardMap.containsKey(player)) {
-                create(player);
+            if (player.isOnline() && isInWorld(player.getLocation()) && !Main.isPlayerInGame(player)) {
+                if (!scoreboardMap.containsKey(player)) {
+                    create(player);
+                }
             } else {
-                remove(player);
+                // Не удаляем скорборд, просто скрываем его
+                Scoreboard board = scoreboardMap.get(player);
+                if (board != null) {
+                    try {
+                        board.setVisibility(false);
+                    } catch (Exception ex) {
+                        // Игнорируем
+                    }
+                }
             }
         } catch (Exception ex) {
             Logger.error("Error in world change: " + ex.getMessage());
@@ -202,7 +209,16 @@ public class MainLobbyVisualsManager implements Listener {
 
     @EventHandler
     public void onPlayerLeave(PlayerQuitEvent e) {
-        remove(e.getPlayer());
+        Player player = e.getPlayer();
+        
+        // Отменяем задачу обновления
+        BukkitTask task = updateTasks.remove(player);
+        if (task != null && !task.isCancelled()) {
+            task.cancel();
+        }
+        
+        // Не удаляем скорборд, просто убираем из мапы
+        scoreboardMap.remove(player);
     }
 
     private String formatNumber(int number) {
@@ -225,21 +241,16 @@ public class MainLobbyVisualsManager implements Listener {
             
             boolean legacy = major == 1 && minor <= 12;
             
-            // Отладка только если включен режим
             if (debugMode) {
                 Logger.info("Player version detected: " + version + " | Legacy: " + legacy);
             }
             
             return legacy;
         } catch (Exception e) {
-            if (debugMode) {
-                Logger.error("Error detecting version: " + e.getMessage());
-            }
             return false;
         }
     }
 
-    // Создаёт бар для старых версий (8 квадратов)
     private String createLegacyBar(double progress) {
         int barLength = 8;
         int filledBars = (int) Math.round(progress * barLength);
@@ -255,7 +266,6 @@ public class MainLobbyVisualsManager implements Listener {
         return bar.toString();
     }
 
-    // Создаёт бар для новых версий (12 квадратов)
     private String createModernBar(double progress) {
         int barLength = 12;
         int filledBars = (int) Math.round(progress * barLength);
@@ -272,14 +282,12 @@ public class MainLobbyVisualsManager implements Listener {
     }
 
     private List<String> getScoreboardLines(Player player) {
-        // Для всех версий используем один языковой файл
         try {
             return LanguageService.getInstance()
                     .get(MessageKeys.MAIN_LOBBY_SCOREBOARD_LINES)
                     .toStringList();
         } catch (Exception e) {
             Logger.error("Failed to load scoreboard lines from language file: " + e.getMessage());
-            // Возвращаем дефолтные строки
             return Arrays.asList(
                 "<gray>» <gold>%rank%</gold> <gray>«</gray>",
                 "",
@@ -302,24 +310,14 @@ public class MainLobbyVisualsManager implements Listener {
     private void startAutoUpdate(Player player) {
         if (player == null) return;
         
-        // Отменяем старую задачу если есть
         BukkitTask oldTask = updateTasks.remove(player);
-        if (oldTask != null) {
-            try {
-                if (!oldTask.isCancelled()) {
-                    oldTask.cancel();
-                }
-            } catch (Exception e) {
-                // Игнорируем ошибки при отмене
-            }
+        if (oldTask != null && !oldTask.isCancelled()) {
+            oldTask.cancel();
         }
 
-        // Создаём новую задачу обновления
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(SBA.getPluginInstance(), () -> {
             try {
-                // Проверяем, что игрок всё ещё валиден
                 if (player == null || !player.isOnline()) {
-                    // Игрок вышел - удаляем задачу
                     BukkitTask t = updateTasks.remove(player);
                     if (t != null && !t.isCancelled()) {
                         t.cancel();
@@ -328,26 +326,22 @@ public class MainLobbyVisualsManager implements Listener {
                 }
                 
                 if (!isInWorld(player.getLocation()) || Main.isPlayerInGame(player)) {
-                    return; // Игрок не в лобби - пропускаем обновление
+                    return;
                 }
                 
                 Scoreboard board = scoreboardMap.get(player);
                 if (board != null) {
                     try {
-                        board.refresh(); // Обновляем скорборд
+                        board.refresh();
                     } catch (Exception e) {
-                        // Ошибка при обновлении - удаляем скорборд
+                        // Не удаляем при ошибке, просто логируем
                         Logger.error("Error refreshing scoreboard for " + player.getName() + ": " + e.getMessage());
-                        remove(player);
                     }
-                } else {
-                    // Если скорборд пропал, создаём заново
-                    create(player);
                 }
             } catch (Exception e) {
-                Logger.error("Error in auto-update for " + (player != null ? player.getName() : "null") + ": " + e.getMessage());
+                Logger.error("Error in auto-update for " + player.getName() + ": " + e.getMessage());
             }
-        }, 100L, 100L); // Обновление каждые 5 секунд (100 тиков)
+        }, 100L, 100L);
 
         updateTasks.put(player, task);
     }
@@ -360,8 +354,10 @@ public class MainLobbyVisualsManager implements Listener {
         if (!isInWorld(player.getLocation()))
             return;
         
-        // Удаляем старый скорборд если есть
-        remove(player);
+        // Проверяем, есть ли уже скорборд
+        if (scoreboardMap.containsKey(player)) {
+            return;
+        }
         
         try {
             final var playerData = SBA.getInstance().getPlayerWrapperService().get(player).orElse(null);
@@ -383,7 +379,6 @@ public class MainLobbyVisualsManager implements Listener {
                 }
             }
 
-            // Получаем заголовок, анимированный заголовок и строки из language.yml
             String scoreboardTitle = LanguageService.getInstance()
                     .get(MessageKeys.MAIN_LOBBY_SCOREBOARD_TITLE)
                     .toString();
@@ -397,13 +392,11 @@ public class MainLobbyVisualsManager implements Listener {
                 Logger.error("Failed to load animated title: " + e.getMessage());
             }
 
-            // Если анимированный заголовок пустой, используем обычный
             if (animatedTitle == null || animatedTitle.isEmpty()) {
                 animatedTitle = new ArrayList<>();
                 animatedTitle.add(scoreboardTitle);
             }
 
-            // Получаем строки для текущей версии
             List<String> scoreboardLines = getScoreboardLines(player);
 
             final var scoreboard = Scoreboard.builder()
@@ -415,7 +408,6 @@ public class MainLobbyVisualsManager implements Listener {
                     .lines(scoreboardLines)
                     .placeholderHook(hook -> {
                         try {
-                            // Используем нашу новую систему уровней
                             var levelManager = PlayerLevelManager.getInstance();
                             int playerLevel = levelManager.getPlayerLevel(player);
                             String playerPrefix = levelManager.getPlayerPrefix(player);
@@ -423,9 +415,8 @@ public class MainLobbyVisualsManager implements Listener {
                             int xpToNext = levelManager.getXPToNextLevel(player);
                             double progress = levelManager.getLevelProgress(player);
 
-                            // Создаём два варианта бара
-                            String barLegacy = createLegacyBar(progress); // 8 квадратов
-                            String barModern = createModernBar(progress); // 12 квадратов
+                            String barLegacy = createLegacyBar(progress);
+                            String barModern = createModernBar(progress);
 
                             final var playerStatistic = Main.getPlayerStatisticsManager().getStatistic(player);
                             if (playerStatistic == null) {
@@ -450,12 +441,10 @@ public class MainLobbyVisualsManager implements Listener {
                                         .replace("%rank%", "§6[VIP]");
                             }
 
-                            // Поражения = всего игр - победы
                             int totalGames = playerStatistic.getWins() + playerStatistic.getDeaths();
                             int losses = totalGames - playerStatistic.getWins();
                             double winRate = totalGames > 0 ? (double) playerStatistic.getWins() / totalGames * 100 : 0;
 
-                            // Форматируем числа
                             String formattedXP = formatNumber(playerXP);
                             String formattedRequired = formatNumber(xpToNext);
                             String formattedKills = formatNumber(playerStatistic.getKills());
@@ -470,7 +459,6 @@ public class MainLobbyVisualsManager implements Listener {
                                     .replace("%kills%", formattedKills)
                                     .replace("%beds%", formattedBeds)
                                     .replace("%deaths%", String.valueOf(playerStatistic.getDeaths()))
-                                    // Уровни
                                     .replace("%level%", playerPrefix + " " + playerLevel + "✫")
                                     .replace("%sba_player_level_prefix%", playerPrefix)
                                     .replace("%sba_player_level_number%", String.valueOf(playerLevel))
@@ -480,16 +468,13 @@ public class MainLobbyVisualsManager implements Listener {
                                     .replace("%req%", formattedRequired)
                                     .replace("%xp_required%", formattedRequired)
                                     .replace("%progress%", String.valueOf((int) (progress * 100)) + "%")
-                                    .replace("%bar%", barModern)          // стандартный бар (12 квадратов)
-                                    .replace("%bar_legacy%", barLegacy)   // бар для старых версий (8 квадратов)
-                                    // Победы/поражения
+                                    .replace("%bar%", barModern)
+                                    .replace("%bar_legacy%", barLegacy)
                                     .replace("%wins%", formattedWins)
                                     .replace("%losses%", formattedLosses)
                                     .replace("%games%", formattedGames)
                                     .replace("%winrate%", String.format("%.1f", winRate) + "%")
-                                    // K/D
                                     .replace("%kdr%", formattedKDR)
-                                    // Привилегия
                                     .replace("%rank%", "§6[VIP]")
                                     .replace("%donate%", "§6[VIP]");
                         } catch (Exception e) {
@@ -499,7 +484,6 @@ public class MainLobbyVisualsManager implements Listener {
                     })
                     .build();
 
-            // Устанавливаем анимированный заголовок
             if (animatedTitle != null && animatedTitle.size() > 1) {
                 try {
                     scoreboard.setAnimatedTitle(animatedTitle);
@@ -509,8 +493,6 @@ public class MainLobbyVisualsManager implements Listener {
             }
 
             scoreboardMap.put(player, scoreboard);
-            
-            // Запускаем автообновление
             startAutoUpdate(player);
             
         } catch (Exception e) {
@@ -518,51 +500,17 @@ public class MainLobbyVisualsManager implements Listener {
         }
     }
 
-    public void remove(Player player) {
-        if (player == null)
-            return;
-            
-        try {
-            // Отменяем задачу обновления
-            BukkitTask task = updateTasks.remove(player);
-            if (task != null) {
-                try {
-                    if (!task.isCancelled()) {
-                        task.cancel();
-                    }
-                } catch (Exception e) {
-                    // Игнорируем ошибки при отмене
-                }
-            }
-            
-            // Удаляем скорборд
-            Scoreboard board = scoreboardMap.remove(player);
-            if (board != null) {
-                try {
-                    board.destroy();
-                } catch (Exception e) {
-                    // Игнорируем - скорборд уже мог быть уничтожен
-                }
-            }
-            
-            // Сбрасываем скорборд игрока на основной
-            try {
-                if (player.isOnline()) {
-                    player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
-                }
-            } catch (Exception e) {
-                // Игнорируем
-            }
-            
-        } catch (Exception e) {
-            Logger.error("Error removing player " + player.getName() + " from scoreboard: " + e.getMessage());
-        }
-    }
-
     @EventHandler
     public void onBedWarsPlayerJoin(BedwarsPlayerJoinedEvent e) {
-        final var player = e.getPlayer();
-        remove(player);
+        Player player = e.getPlayer();
+        Scoreboard board = scoreboardMap.get(player);
+        if (board != null) {
+            try {
+                board.setVisibility(false);
+            } catch (Exception ex) {
+                // Игнорируем
+            }
+        }
     }
 
     @EventHandler
@@ -571,17 +519,25 @@ public class MainLobbyVisualsManager implements Listener {
         if (!enabled)
             return;
             
-        // Сначала удаляем старый скорборд
-        remove(player);
-        
-        // Потом создаём новый с задержкой
         Bukkit.getScheduler().runTaskLater(SBA.getPluginInstance(), () -> {
             try {
                 if (player != null && player.isOnline() && isInWorld(player.getLocation()) && !Main.isPlayerInGame(player)) {
-                    create(player);
+                    if (!scoreboardMap.containsKey(player)) {
+                        create(player);
+                    } else {
+                        Scoreboard board = scoreboardMap.get(player);
+                        if (board != null) {
+                            try {
+                                board.setVisibility(true);
+                                board.refresh();
+                            } catch (Exception ex) {
+                                // Игнорируем
+                            }
+                        }
+                    }
                 }
             } catch (Exception ex) {
-                Logger.error("Error recreating scoreboard for " + (player != null ? player.getName() : "null") + ": " + ex.getMessage());
+                Logger.error("Error recreating scoreboard for " + player.getName() + ": " + ex.getMessage());
             }
         }, 20L);
     }
