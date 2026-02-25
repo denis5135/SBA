@@ -461,6 +461,12 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
 
     @Override
     public @NotNull InventorySetBuilder getInventorySetBuilder() {
+        // Получаем размер из конфига
+        int rows = getShopRows();
+        int actualRows = getShopRenderActualRows();
+        
+        Logger.info("Building upgrade shop with rows: " + rows + ", actual rows: " + actualRows);
+        
         return SimpleInventoriesCore
                 .builder()
                 .categoryOptions(localOptionsBuilder -> localOptionsBuilder
@@ -482,8 +488,8 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                         .cosmeticItem(SBAConfig.getInstance().readDefinedItem(
                                 SBAConfig.getInstance().node("shop", "shopcosmetic"),
                                 "GRAY_STAINED_GLASS_PANE"))
-                        .rows(getShopRows())
-                        .renderActualRows(getShopRenderActualRows())
+                        .rows(rows)  // Используем полученный размер
+                        .renderActualRows(actualRows)  // Используем полученный размер
                         .renderOffset(SBAConfig.getInstance().getShopRenderOffset())
                         .renderHeaderStart(SBAConfig.getInstance().getShopRenderHeaderStart())
                         .renderFooterStart(SBAConfig.getInstance().getShopRenderFooterStart())
@@ -500,12 +506,17 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
 
     @Override
     public int getShopRows() {
-        return SBAConfig.getInstance().getUpgradeShopRows();
+        // Прямое обращение к конфигу
+        int rows = SBAConfig.getInstance().getUpgradeShopRows();
+        Logger.info("SBAUpgradeStoreInventory.getShopRows() returned: " + rows);
+        return rows;
     }
     
     @Override
     public int getShopRenderActualRows() {
-        return SBAConfig.getInstance().getUpgradeShopRenderActualRows();
+        int rows = SBAConfig.getInstance().getUpgradeShopRenderActualRows();
+        Logger.info("SBAUpgradeStoreInventory.getShopRenderActualRows() returned: " + rows);
+        return rows;
     }
     
     @Override
@@ -548,13 +559,10 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
         final var store = event.getStore();
         final var shopFile = store.getShopFile();
         
-        // ДЛЯ ОТЛАДКИ - временно открываем как upgrade shop всё, что содержит upgrade в названии
         Logger.info("========== SHOP OPEN DEBUG ==========");
         Logger.info("Player: " + event.getPlayer().getName());
         Logger.info("Shop file: " + shopFile);
-        Logger.info("Store class: " + store.getClass().getName());
         
-        // Проверяем по имени файла
         boolean isUpgradeShop = false;
         
         if (shopFile != null) {
@@ -563,11 +571,8 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                            lowerFile.contains("upgrades") ||
                            lowerFile.equals("upgradeshop.yml");
             Logger.info("File check: " + lowerFile + " -> " + isUpgradeShop);
-        } else {
-            Logger.info("Shop file is null!");
         }
         
-        // ВРЕМЕННО: открываем как upgrade shop, если имя файла содержит upgrade
         if (isUpgradeShop) {
             Logger.info("✓ Opening UPGRADE shop for player: " + event.getPlayer().getName());
             
@@ -606,8 +611,6 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                 Logger.error("Error opening upgrade shop: " + e.getMessage());
                 e.printStackTrace();
             }
-        } else {
-            Logger.info("✗ Not an upgrade shop, passing to normal shop handler");
         }
         Logger.info("=====================================");
     }
