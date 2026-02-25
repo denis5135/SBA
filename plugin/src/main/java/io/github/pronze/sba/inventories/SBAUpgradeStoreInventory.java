@@ -633,7 +633,7 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                                 itemBuilder -> itemBuilder.name(
                                         LanguageService.getInstance().get(MessageKeys.SHOP_PAGE_FORWARD).toComponent()))
                         .cosmeticItem(SBAConfig.getInstance().readDefinedItem(
-                                SBAConfig.getInstance().node("shop", "upgrade-shop", "shopcosmetic"),
+                                SBAConfig.getInstance().node("shop", "shopcosmetic"),
                                 "GRAY_STAINED_GLASS_PANE"))
                         .rows(getShopRows())
                         .renderActualRows(getShopRenderActualRows())
@@ -641,9 +641,9 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                         .renderHeaderStart(getShopRenderHeaderStart())
                         .renderFooterStart(getShopRenderFooterStart())
                         .itemsOnRow(getShopItemsOnRow())
-                        .showPageNumber(SBAConfig.getInstance().node("shop", "upgrade-shop", "show-page-numbers")
+                        .showPageNumber(SBAConfig.getInstance().node("shop", "show-page-numbers")
                                 .getBoolean(false))
-                        .inventoryType(SBAConfig.getInstance().node("shop", "upgrade-shop", "inventory-type")
+                        .inventoryType(SBAConfig.getInstance().node("shop", "inventory-type")
                                 .getString("CHEST"))
                         .prefix(LanguageService.getInstance().get(MessageKeys.SHOP_NAME).toComponent()))
                 .allowAccessToConsole(
@@ -656,18 +656,18 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                 .variableToProperty("currency-changer", "currencyChanger");
     }
 
-    // ===== НОВЫЕ МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ НАСТРОЕК МАГАЗИНА =====
+    // ===== МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ НАСТРОЕК МАГАЗИНА =====
     
     private String getShopBackPath() {
-        return "upgrade-shop.shopback";
+        return "shopback";
     }
     
     private String getShopPageBackPath() {
-        return "upgrade-shop.pageback";
+        return "pageback";
     }
     
     private String getShopPageForwardPath() {
-        return "upgrade-shop.pageforward";
+        return "pageforward";
     }
     
     @Override
@@ -720,7 +720,25 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
         final var shopFile = event.getStore().getShopFile();
         if (shopFile != null && shopFile.toLowerCase().contains("upgrade")) {
             event.setResult(BedwarsOpenShopEvent.Result.DISALLOW_UNKNOWN);
-            openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
+            if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
+                LanguageService
+                        .getInstance()
+                        .get(MessageKeys.MESSAGE_NOT_IN_GAME)
+                        .send(Players.wrapPlayer(event.getPlayer()));
+                return;
+            }
+            if (Main.getInstance().getGameOfPlayer(event.getPlayer()).getTeamOfPlayer(event.getPlayer()) == null) {
+                LanguageService
+                        .getInstance()
+                        .get(MessageKeys.MESSAGE_NOT_IN_GAME)
+                        .send(Players.wrapPlayer(event.getPlayer()));
+                return;
+            }
+            
+            // Используем существующий экземпляр, не создаём новый
+            SBAUpgradeStoreInventory inventory = getInstance();
+            
+            inventory.openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
                     (GameStore) event.getStore());
         }
     }
