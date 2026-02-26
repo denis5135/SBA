@@ -281,7 +281,9 @@ public class MainLobbyVisualsManager implements Listener {
                             int required = lm.getXPToNextLevel(player);
                             double progress = lm.getLevelProgress(player);
 
-                            String bar = createModernBar(progress);
+                            // Бар из 8 квадратиков: скобки светло-серые (§7), незаполненные квадратики светло-серые (§7), заполненные голубые (§b)
+                            String bar = create8Bar(progress);
+                            
                             var stats = Main.getPlayerStatisticsManager().getStatistic(player);
 
                             if (stats == null) {
@@ -299,7 +301,7 @@ public class MainLobbyVisualsManager implements Listener {
                                         .replace("%sba_player_xp%", formatNumber(xp))
                                         .replace("%sba_player_level_required%", formatNumber(required))
                                         .replace("%progress%", (int)(progress*100) + "%")
-                                        .replace("%bar%", bar);
+                                        .replace("%bar%", bar); // Добавляем бар
                             }
 
                             int total = stats.getWins() + stats.getDeaths();
@@ -320,7 +322,7 @@ public class MainLobbyVisualsManager implements Listener {
                                     .replace("%sba_player_xp%", formatNumber(xp))
                                     .replace("%sba_player_level_required%", formatNumber(required))
                                     .replace("%progress%", (int)(progress*100) + "%")
-                                    .replace("%bar%", bar);
+                                    .replace("%bar%", bar); // Добавляем бар
                         } catch (Exception e) {
                             return hook.getLine();
                         }
@@ -351,12 +353,19 @@ public class MainLobbyVisualsManager implements Listener {
         return String.valueOf(n);
     }
 
-    private String createModernBar(double progress) {
-        int len = 10;
+    // Бар из 8 квадратиков: светло-серые скобки и незаполненные квадратики, голубые заполненные
+    private String create8Bar(double progress) {
+        int len = 8;
         int filled = (int) Math.round(progress * len);
-        StringBuilder bar = new StringBuilder("§8[");
-        for (int i = 0; i < len; i++) bar.append(i < filled ? "§b■" : "§7■");
-        bar.append("§8]");
+        StringBuilder bar = new StringBuilder("§7[");
+        for (int i = 0; i < len; i++) {
+            if (i < filled) {
+                bar.append("§b■"); // Голубой заполненный
+            } else {
+                bar.append("§7■"); // Светло-серый незаполненный
+            }
+        }
+        bar.append("§7]");
         return bar.toString();
     }
 
