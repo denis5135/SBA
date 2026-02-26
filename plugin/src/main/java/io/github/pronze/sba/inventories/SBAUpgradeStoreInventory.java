@@ -303,64 +303,99 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                     break;
                     
                 case "forge":
-                    var map = property.getPropertyData().childrenMap();
-                    if (map != null) {
-                        double addLevels = 0.2;
-                        double maxLevel = 0;
-                        List<String> types = List.of();
+                    try {
+                        var map = property.getPropertyData().childrenMap();
+                        if (map != null) {
+                            double addLevels = 0.2;
+                            double maxLevel = 3.0;
+                            List<String> types = new ArrayList<>();
 
-                        if (map.containsKey("type")) {
-                            try { types = map.get("type").getList(String.class, List.of()); } 
-                            catch (SerializationException e) { e.printStackTrace(); }
-                        }
-                        if (map.containsKey("add-levels")) addLevels = map.get("add-levels").getDouble(0.2);
-                        if (map.containsKey("max-level")) maxLevel = map.get("max-level").getDouble(0);
-
-                        List<ItemSpawner> spawnersToUpgrade = new ArrayList<>();
-
-                        for (var spawner : game.getItemSpawners()) {
-                            if (spawner.getItemSpawnerType() == null) continue;
-                            var material = spawner.getItemSpawnerType().getName().toLowerCase();
-                            if (types.contains(material)) {
-                                if (spawner.getTeam() != null && spawner.getTeam().getName().equals(team.getName())) {
-                                    if (spawner.getCurrentLevel() < maxLevel || maxLevel == 0)
-                                        spawnersToUpgrade.add(spawner);
+                            if (map.containsKey("type")) {
+                                try {
+                                    types = map.get("type").getList(String.class, new ArrayList<>());
+                                } catch (SerializationException e) {
+                                    e.printStackTrace();
                                 }
                             }
-                        }
-                        
-                        double maxLevelF = maxLevel;
-                        if (spawnersToUpgrade.isEmpty()) {
-                            types.forEach(spawnerType -> {
-                                double closestDistance = Double.MAX_VALUE;
-                                ItemSpawner closestSpawner = null;
-                                for (var spawner : game.getItemSpawners()) {
-                                    if (spawner.getItemSpawnerType() == null) continue;
-                                    if (spawner.getItemSpawnerType().getName().toLowerCase().equals(spawnerType)) {
-                                        double distance = team.getTeamSpawn().distance(spawner.getLocation());
-                                        if (distance < closestDistance) {
-                                            closestDistance = distance;
-                                            closestSpawner = spawner;
+                            if (map.containsKey("add-levels")) {
+                                addLevels = map.get("add-levels").getDouble(0.2);
+                            }
+                            if (map.containsKey("max-level")) {
+                                maxLevel = map.get("max-level").getDouble(3.0);
+                            }
+
+                            Logger.trace("Forge upgrade: addLevels={}, maxLevel={}, types={}", addLevels, maxLevel, types);
+
+                            List<ItemSpawner> spawnersToUpgrade = new ArrayList<>();
+
+                            // Ищем спавнеры команды
+                            for (var spawner : game.getItemSpawners()) {
+                                if (spawner.getItemSpawnerType() == null) continue;
+                                
+                                String material = spawner.getItemSpawnerType().getName().toLowerCase();
+                                
+                                // Если типы не указаны, апгрейдим все спавнеры команды
+                                if (types.isEmpty() || types.contains(material)) {
+                                    // Проверяем, принадлежит ли спавнер команде
+                                    if (spawner.getTeam() != null && spawner.getTeam().getName().equals(team.getName())) {
+                                        if (spawner.getCurrentLevel() < maxLevel || maxLevel == 0) {
+                                            spawnersToUpgrade.add(spawner);
+                                            Logger.trace("Found team spawner: {} at level {}", material, spawner.getCurrentLevel());
                                         }
                                     }
                                 }
-                                if (closestSpawner != null) {
-                                    double newLevel = closestSpawner.getCurrentLevel();
-                                    if (newLevel < maxLevelF || maxLevelF == 0) spawnersToUpgrade.add(closestSpawner);
+                            }
+
+                            // Если не нашли спавнеры команды, ищем ближайшие к базе
+                            if (spawnersToUpgrade.isEmpty() && !types.isEmpty()) {
+                                for (String spawnerType : types) {
+                                    double closestDistance = Double.MAX_VALUE;
+                                    ItemSpawner closestSpawner = null;
+                                    
+                                    for (var spawner : game.getItemSpawners()) {
+                                        if (spawner.getItemSpawnerType() == null) continue;
+                                        
+                                        if (spawner.getItemSpawnerType().getName().toLowerCase().equals(spawnerType)) {
+                                            double distance = team.getTeamSpawn().distance(spawner.getLocation());
+                                            if (distance < closestDistance) {
+                                                closestDistance = distance;
+                                                closestSpawner = spawner;
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (closestSpawner != null && (closestSpawner.getCurrentLevel() < maxLevel || maxLevel == 0)) {
+                                        spawnersToUpgrade.add(closestSpawner);
+                                        Logger.trace("Found closest spawner: {} at level {}", spawnerType, closestSpawner.getCurrentLevel());
+                                    }
                                 }
-                            });
-                        }
+                            }
 
-                        for (var spawner : spawnersToUpgrade) {
-                            double newLevel = spawner.getCurrentLevel() + addLevels;
-                            if (newLevel > maxLevel && maxLevel > 0) newLevel = maxLevel;
-                            spawner.setCurrentLevel(newLevel);
-                        }
+                            // Применяем улучшение
+                            for (var spawner : spawnersToUpgrade) {
+                                double newLevel = spawner.getCurrentLevel() + addLevels;
+                                if (newLevel > maxLevel && maxLevel > 0) {
+                                    newLevel = maxLevel;
+                                }
+                                spawner.setCurrentLevel(newLevel);
+                                Logger.trace("Upgraded spawner to level {}", newLevel);
+                            }
 
-                        if (spawnersToUpgrade.isEmpty()) {
-                            messageOnFail.set(MessageKeys.GREATEST_SPAWNER);
-                            shouldSellStack = false;
+                            if (spawnersToUpgrade.isEmpty()) {
+                                messageOnFail.set(MessageKeys.GREATEST_SPAWNER);
+                                shouldSellStack = false;
+                                Logger.trace("No spawners to upgrade");
+                            } else {
+                                // Сообщение команде об улучшении
+                                String forgeMessage = "§6✦ Улучшение генератора! §7Скорость спавна увеличена.";
+                                for (Player teamPlayer : team.getConnectedPlayers()) {
+                                    teamPlayer.sendMessage(forgeMessage);
+                                }
+                            }
                         }
+                    } catch (Exception e) {
+                        Logger.error("Error in forge upgrade: " + e.getMessage());
+                        e.printStackTrace();
                     }
                     break;
                     
@@ -461,7 +496,7 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
 
     @Override
     public @NotNull InventorySetBuilder getInventorySetBuilder() {
-        // ПРИНУДИТЕЛЬНО устанавливаем размер 3 строки для магазина улучшений
+        // Возвращаем размер 6x6 как в обычном магазине
         return SimpleInventoriesCore
                 .builder()
                 .categoryOptions(localOptionsBuilder -> localOptionsBuilder
@@ -483,9 +518,8 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                         .cosmeticItem(SBAConfig.getInstance().readDefinedItem(
                                 SBAConfig.getInstance().node("shop", "shopcosmetic"),
                                 "GRAY_STAINED_GLASS_PANE"))
-                        // ПРИНУДИТЕЛЬНЫЕ ЗНАЧЕНИЯ ДЛЯ МАГАЗИНА УЛУЧШЕНИЙ
-                        .rows(3)                       // <- 3 строки
-                        .renderActualRows(3)            // <- 3 строки
+                        .rows(6)
+                        .renderActualRows(6)
                         .renderOffset(0)
                         .renderHeaderStart(9)
                         .renderFooterStart(600)
@@ -502,12 +536,12 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
 
     @Override
     public int getShopRows() {
-        return 3; // Всегда возвращаем 3
+        return 6;
     }
     
     @Override
     public int getShopRenderActualRows() {
-        return 3; // Всегда возвращаем 3
+        return 6;
     }
     
     @Override
