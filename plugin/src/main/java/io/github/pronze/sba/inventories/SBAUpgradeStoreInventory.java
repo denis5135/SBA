@@ -324,29 +324,22 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                                 maxLevel = map.get("max-level").getDouble(3.0);
                             }
 
-                            Logger.trace("Forge upgrade: addLevels={}, maxLevel={}, types={}", addLevels, maxLevel, types);
-
                             List<ItemSpawner> spawnersToUpgrade = new ArrayList<>();
 
-                            // Ищем спавнеры команды
                             for (var spawner : game.getItemSpawners()) {
                                 if (spawner.getItemSpawnerType() == null) continue;
                                 
                                 String material = spawner.getItemSpawnerType().getName().toLowerCase();
                                 
-                                // Если типы не указаны, апгрейдим все спавнеры команды
                                 if (types.isEmpty() || types.contains(material)) {
-                                    // Проверяем, принадлежит ли спавнер команде
                                     if (spawner.getTeam() != null && spawner.getTeam().getName().equals(team.getName())) {
                                         if (spawner.getCurrentLevel() < maxLevel || maxLevel == 0) {
                                             spawnersToUpgrade.add(spawner);
-                                            Logger.trace("Found team spawner: {} at level {}", material, spawner.getCurrentLevel());
                                         }
                                     }
                                 }
                             }
 
-                            // Если не нашли спавнеры команды, ищем ближайшие к базе
                             if (spawnersToUpgrade.isEmpty() && !types.isEmpty()) {
                                 for (String spawnerType : types) {
                                     double closestDistance = Double.MAX_VALUE;
@@ -366,27 +359,22 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                                     
                                     if (closestSpawner != null && (closestSpawner.getCurrentLevel() < maxLevel || maxLevel == 0)) {
                                         spawnersToUpgrade.add(closestSpawner);
-                                        Logger.trace("Found closest spawner: {} at level {}", spawnerType, closestSpawner.getCurrentLevel());
                                     }
                                 }
                             }
 
-                            // Применяем улучшение
                             for (var spawner : spawnersToUpgrade) {
                                 double newLevel = spawner.getCurrentLevel() + addLevels;
                                 if (newLevel > maxLevel && maxLevel > 0) {
                                     newLevel = maxLevel;
                                 }
                                 spawner.setCurrentLevel(newLevel);
-                                Logger.trace("Upgraded spawner to level {}", newLevel);
                             }
 
                             if (spawnersToUpgrade.isEmpty()) {
                                 messageOnFail.set(MessageKeys.GREATEST_SPAWNER);
                                 shouldSellStack = false;
-                                Logger.trace("No spawners to upgrade");
                             } else {
-                                // Сообщение команде об улучшении
                                 String forgeMessage = "§6✦ Улучшение генератора! §7Скорость спавна увеличена.";
                                 for (Player teamPlayer : team.getConnectedPlayers()) {
                                     teamPlayer.sendMessage(forgeMessage);
@@ -395,7 +383,6 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                         }
                     } catch (Exception e) {
                         Logger.error("Error in forge upgrade: " + e.getMessage());
-                        e.printStackTrace();
                     }
                     break;
                     
@@ -496,7 +483,7 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
 
     @Override
     public @NotNull InventorySetBuilder getInventorySetBuilder() {
-        // Возвращаем размер 6x6 как в обычном магазине
+        // Используем настройки из конфига
         return SimpleInventoriesCore
                 .builder()
                 .categoryOptions(localOptionsBuilder -> localOptionsBuilder
@@ -518,13 +505,13 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                         .cosmeticItem(SBAConfig.getInstance().readDefinedItem(
                                 SBAConfig.getInstance().node("shop", "shopcosmetic"),
                                 "GRAY_STAINED_GLASS_PANE"))
-                        .rows(6)
-                        .renderActualRows(6)
-                        .renderOffset(0)
-                        .renderHeaderStart(9)
-                        .renderFooterStart(600)
-                        .itemsOnRow(9)
-                        .showPageNumber(false)
+                        .rows(getShopRows())
+                        .renderActualRows(getShopRenderActualRows())
+                        .renderOffset(getShopRenderOffset())
+                        .renderHeaderStart(getShopRenderHeaderStart())
+                        .renderFooterStart(getShopRenderFooterStart())
+                        .itemsOnRow(getShopItemsOnRow())
+                        .showPageNumber(SBAConfig.getInstance().node("shop", "show-page-numbers").getBoolean(false))
                         .inventoryType("CHEST")
                         .prefix(LanguageService.getInstance().get(MessageKeys.SHOP_NAME).toComponent()))
                 .allowAccessToConsole(true)
@@ -536,32 +523,32 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
 
     @Override
     public int getShopRows() {
-        return 6;
+        return SBAConfig.getInstance().getUpgradeShopRows();
     }
     
     @Override
     public int getShopRenderActualRows() {
-        return 6;
+        return SBAConfig.getInstance().getUpgradeShopRenderActualRows();
     }
     
     @Override
     public int getShopRenderOffset() {
-        return 0;
+        return SBAConfig.getInstance().getUpgradeShopRenderOffset();
     }
     
     @Override
     public int getShopRenderHeaderStart() {
-        return 9;
+        return SBAConfig.getInstance().getUpgradeShopRenderHeaderStart();
     }
     
     @Override
     public int getShopRenderFooterStart() {
-        return 600;
+        return SBAConfig.getInstance().getUpgradeShopRenderFooterStart();
     }
     
     @Override
     public int getShopItemsOnRow() {
-        return 9;
+        return SBAConfig.getInstance().getUpgradeShopItemsOnRow();
     }
     
     @Override
@@ -593,6 +580,7 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
                            lowerFile.equals("upgradeshop.yml");
         }
         
+        // ВАЖНО: Если это магазин улучшений, открываем его
         if (isUpgradeShop) {
             event.setResult(BedwarsOpenShopEvent.Result.DISALLOW_UNKNOWN);
             
@@ -610,6 +598,9 @@ public class SBAUpgradeStoreInventory extends AbstractStoreInventory {
             SBAUpgradeStoreInventory inventory = getInstance();
             inventory.openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
                     (GameStore) store);
+        } else {
+            // Если это не магазин улучшений, ничего не делаем - пусть обычный магазин обрабатывает
+            // Не устанавливаем event.setResult, чтобы другие слушатели могли обработать
         }
     }
 }
