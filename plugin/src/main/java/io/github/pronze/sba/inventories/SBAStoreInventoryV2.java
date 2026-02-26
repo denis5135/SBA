@@ -677,7 +677,24 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
     public void onBedWarsOpenShop(BedwarsOpenShopEvent event) {
         final var shopFile = event.getStore().getShopFile();
         
-        if (shopFile == null || !shopFile.toLowerCase().contains("upgrade")) {
+        // Проверяем, является ли это магазином улучшений
+        if (shopFile != null && shopFile.toLowerCase().contains("upgrade")) {
+            // Это магазин улучшений - просто открываем его через этот же класс
+            // Не меняем Result, чтобы другие слушатели не перехватили
+            if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
+                LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
+                return;
+            }
+            if (Main.getInstance().getGameOfPlayer(event.getPlayer()).getTeamOfPlayer(event.getPlayer()) == null) {
+                LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
+                return;
+            }
+            
+            // Открываем магазин улучшений через этот же экземпляр
+            openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
+                    (GameStore) event.getStore());
+        } else {
+            // Это обычный магазин
             event.setResult(BedwarsOpenShopEvent.Result.DISALLOW_UNKNOWN);
             if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
                 LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
@@ -688,8 +705,7 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 return;
             }
             
-            SBAStoreInventoryV2 inventory = getInstance();
-            inventory.openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
+            openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
                     (GameStore) event.getStore());
         }
     }
