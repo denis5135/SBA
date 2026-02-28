@@ -119,54 +119,36 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
         ItemStack originalItem = event.getStack().as(ItemStack.class);
         String itemName = event.getStack().getMaterial().platformName();
         
-        // Проверяем, включена ли система улучшения инструментов
+        // ВСЕГДА показываем предметы, если это не апгрейд с next
+        String upgradedTo = PlayerItemTracker.getInstance().getNextUpgrade(player, itemName);
+        
+        if (upgradedTo != null) {
+            event.setStack(org.screamingsandals.lib.item.builder.ItemStackFactory.getAir());
+            return;
+        }
+        
+        // Применяем чары команды
+        event.setStack(ShopUtil.applyTeamUpgradeEnchantsToItem(event.getStack(), event, StoreType.UPGRADES));
+        
+        // Теперь проверяем инструменты (НО НЕ СКРЫВАЕМ ИХ!)
         if (SBAConfig.getInstance().isToolUpgradeEnabled() && originalItem != null) {
             try {
-                // Проверяем, является ли предмет инструментом
                 ToolType toolType = ToolUpgradeManager.getInstance().getToolType(originalItem);
                 if (toolType != null) {
-                    // Это инструмент
                     int itemLevel = ToolUpgradeManager.getInstance().getCurrentLevel(originalItem);
                     int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
                     
-                    // Отладка - убрать после исправления
-                    Logger.info("🔧 Tool: " + toolType + " | Item: " + originalItem.getType() + 
-                               " | ItemLevel: " + itemLevel + " | PlayerLevel: " + playerLevel);
+                    Logger.info("🔧 Tool in shop: " + toolType + " Level " + itemLevel + 
+                               " (Player has level " + playerLevel + ")");
                     
-                    boolean shouldShow = false;
-                    
-                    // Для новых игроков (playerLevel = 0) показываем ТОЛЬКО деревянные инструменты (level 0)
-                    if (playerLevel == 0) {
-                        shouldShow = (itemLevel == 0);
-                    } 
-                    // Для игроков с инструментом показываем текущий и следующий уровень
-                    else {
-                        shouldShow = (itemLevel == playerLevel || itemLevel == playerLevel + 1);
-                    }
-                    
-                    // Особый случай для ножниц (только 2 уровня)
-                    if (toolType == ToolType.SHEARS) {
-                        if (playerLevel == 0) {
-                            shouldShow = (itemLevel == 0);
-                        } else {
-                            shouldShow = (itemLevel == 0 || itemLevel == 1);
-                        }
-                    }
-                    
-                    if (!shouldShow) {
-                        // Скрываем предмет
-                        event.setStack(org.screamingsandals.lib.item.builder.ItemStackFactory.getAir());
-                        Logger.info("❌ Hiding tool: " + originalItem.getType());
-                        return;
-                    } else {
-                        Logger.info("✅ Showing tool: " + originalItem.getType());
-                    }
+                    // TODO: здесь потом добавим изменение цены или лора
+                    // НО НЕ СКРЫВАЕМ ПРЕДМЕТЫ!
                 }
             } catch (Exception e) {
-                Logger.error("Error filtering tool in shop: " + e.getMessage());
-                e.printStackTrace();
+                Logger.trace("Error checking tool: " + e.getMessage());
             }
         }
+    }
         
         // Оригинальная логика SBA
         String upgradedTo = PlayerItemTracker.getInstance().getNextUpgrade(player, itemName);
