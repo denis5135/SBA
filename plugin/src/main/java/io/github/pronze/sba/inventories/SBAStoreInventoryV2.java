@@ -169,14 +169,13 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
     }
 
     /**
-     * Найти существующий меч в инвентаре (кроме деревянного)
+     * Найти существующий меч в инвентаре
      */
     private ItemStack findExistingSword(Player player) {
         for (ItemStack item : player.getInventory().getContents()) {
             if (item == null) continue;
             String name = item.getType().name();
-            // Ищем любой меч, кроме деревянного (начального)
-            if (name.contains("SWORD") && !name.contains("WOODEN")) {
+            if (name.contains("SWORD")) {
                 return item;
             }
         }
@@ -239,13 +238,23 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
             String afterUnderscoreLower = afterUnderscore.toLowerCase();
             
             if (afterUnderscoreLower.equals("sword")) {
-                // Логика для мечей
-                ItemStack currentSword = findExistingSword(player);
+                // Логика для мечей - ищем любой меч
+                ItemStack currentSword = null;
+                int currentSwordLevel = -1;
+                
+                for (ItemStack item : player.getInventory().getContents()) {
+                    if (item == null) continue;
+                    String name = item.getType().name();
+                    if (name.contains("SWORD")) {
+                        currentSword = item;
+                        currentSwordLevel = getSwordLevel(item);
+                        break;
+                    }
+                }
+                
                 int newSwordLevel = getSwordLevel(newItem.get());
                 
                 if (currentSword != null) {
-                    int currentSwordLevel = getSwordLevel(currentSword);
-                    
                     if (newSwordLevel <= currentSwordLevel) {
                         // Меч хуже или такой же - не даём купить
                         LanguageService.getInstance().get("shop.sword_not_better")
@@ -590,7 +599,7 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                        propertyName.equals("axe") || 
                        propertyName.equals("shears")) {
                 
-                // Обработка улучшения инструментов
+                // Обработка улучшения инструментов как в upgradeShop
                 if (SBAConfig.getInstance().isToolUpgradeEnabled()) {
                     ToolType toolType = null;
                     if (propertyName.equals("pickaxe")) {
@@ -602,12 +611,9 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                     }
                     
                     if (toolType != null) {
-                        Logger.info("Attempting to upgrade tool: " + toolType + " for player " + player.getName());
                         boolean success = ToolUpgradeManager.getInstance().upgradeTool(player, toolType, type);
                         if (!success) {
                             shouldSellStack = false;
-                        } else {
-                            Logger.info("Tool upgraded successfully!");
                         }
                     }
                 }
