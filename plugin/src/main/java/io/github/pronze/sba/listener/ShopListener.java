@@ -83,29 +83,14 @@ public class ShopListener implements Listener {
         if (openInv == null) return;
         
         String title = player.getOpenInventory().getTitle();
-        Logger.info("🔍 Filtering inventory: '" + title + "' (reason: " + reason + ")");
         
-        // Сначала выведем все предметы для отладки
-        Logger.info("=== ВСЕ ПРЕДМЕТЫ В ИНВЕНТАРЕ ===");
-        for (int i = 0; i < openInv.getSize(); i++) {
-            ItemStack item = openInv.getItem(i);
-            if (item != null && item.getType() != Material.AIR) {
-                Logger.info("  Slot " + i + ": " + item.getType().name());
-            }
-        }
-        Logger.info("================================");
+        // Определяем, в какой мы категории
+        boolean isToolsCategory = title.contains("Tools") || title.contains("Инструменты");
+        boolean isMainMenu = title.contains("Shop") || title.contains("Магазин") || title.contains("Item Shop");
         
-        // Считаем инструменты
-        int toolCount = 0;
-        for (ItemStack item : openInv.getContents()) {
-            if (item == null || item.getType() == Material.AIR) continue;
-            if (ToolUpgradeManager.getInstance().getToolType(item) != null) {
-                toolCount++;
-            }
-        }
+        if (!isToolsCategory) return; // Фильтруем только категорию инструментов
         
-        boolean isToolsCategory = toolCount >= 3;
-        Logger.info("toolCount: " + toolCount + ", isToolsCategory: " + isToolsCategory);
+        Logger.info("🔧 Filtering tools category for: " + player.getName());
         
         int hiddenCount = 0;
         int visibleCount = 0;
@@ -116,7 +101,7 @@ public class ShopListener implements Listener {
             
             if (isNavigationItem(item)) continue;
             
-            // Золотая кирка - это иконка категории, её НИКОГДА не скрываем
+            // Золотая кирка - иконка категории, не трогаем
             if (item.getType() == Material.GOLDEN_PICKAXE) {
                 visibleCount++;
                 continue;
@@ -127,41 +112,50 @@ public class ShopListener implements Listener {
                 int itemLevel = ToolUpgradeManager.getInstance().getCurrentLevel(item);
                 int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
                 
-                Logger.info("  Item: " + item.getType().name() + " | Type: " + toolType + " | ItemLevel: " + itemLevel + " | PlayerLevel: " + playerLevel);
+                boolean shouldShow = false;
                 
-                boolean shouldShow = true;
-                
-                if (isToolsCategory) {
-                    // В категории инструментов фильтруем!
-                    if (playerLevel == 0) {
-                        // Нет инструмента - показываем только деревянный (уровень 0)
-                        shouldShow = (itemLevel == 0);
-                        Logger.info("    Player has no tool, showing only level 0. Current item level: " + itemLevel + " -> shouldShow: " + shouldShow);
+                // Логика как в BedWars 1058
+                if (playerLevel == 0) {
+                    // Не куплено - показываем только деревянный (уровень 0)
+                    shouldShow = (itemLevel == 0);
+                } else if (playerLevel >= 3) {
+                    // Максимальный уровень - показываем красное стекло
+                    if (itemLevel == 3) {
+                        // Это алмазный инструмент - показываем
+                        shouldShow = true;
                     } else {
-                        // Есть инструмент - показываем текущий и следующий уровень
-                        shouldShow = (itemLevel == playerLevel || itemLevel == playerLevel + 1);
-                        Logger.info("    Player has level " + playerLevel + ", showing levels " + playerLevel + " and " + (playerLevel + 1) + 
-                                   ". Current item level: " + itemLevel + " -> shouldShow: " + shouldShow);
+                        // Заменяем на красное стекло
+                        openInv.setItem(i, createMaxLevelItem());
+                        hiddenCount++;
+                        continue;
                     }
-                    
-                    // Особый случай для ножниц
-                    if (toolType == ToolType.SHEARS) {
-                        if (playerLevel == 0) {
-                            shouldShow = (itemLevel == 0);
+                } else {
+                    // Есть инструмент - показываем текущий и следующий уровень
+                    shouldShow = (itemLevel == playerLevel || itemLevel == playerLevel + 1);
+                }
+                
+                // Особый случай для ножниц (только 2 уровня)
+                if (toolType == ToolType.SHEARS) {
+                    if (playerLevel == 0) {
+                        shouldShow = (itemLevel == 0);
+                    } else if (playerLevel >= 1) {
+                        if (itemLevel == 1) {
+                            shouldShow = true;
                         } else {
-                            shouldShow = (itemLevel == 0 || itemLevel == 1);
+                            openInv.setItem(i, createMaxLevelItem());
+                            hiddenCount++;
+                            continue;
                         }
-                        Logger.info("    Special case for SHEARS: shouldShow=" + shouldShow);
                     }
                 }
                 
                 if (!shouldShow) {
                     openInv.setItem(i, createPlaceholderItem());
                     hiddenCount++;
-                    Logger.info("  ❌ Hidden " + item.getType().name());
+                    Logger.info("  ❌ Hidden " + item.getType().name() + " (level " + itemLevel + ")");
                 } else {
                     visibleCount++;
-                    Logger.info("  ✅ Visible " + item.getType().name());
+                    Logger.info("  ✅ Visible " + item.getType().name() + " (level " + itemLevel + ")");
                 }
             }
         }
@@ -196,5 +190,15 @@ public class ShopListener implements Listener {
             placeholder.setItemMeta(meta);
         }
         return placeholder;
+    }
+    
+    private ItemStack createMaxLevelItem() {
+        ItemStack item = new ItemStack(Material.RED_STAINED_GLASS_PANE);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName("§c§lМАКСИМАЛЬНЫЙ УРОВЕНЬ");
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 }
