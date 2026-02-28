@@ -117,6 +117,8 @@ public class ShopListener implements Listener {
                 int itemLevel = ToolUpgradeManager.getInstance().getCurrentLevel(item);
                 int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
                 
+                Logger.info("  Item: " + item.getType().name() + " | Type: " + toolType + " | ItemLevel: " + itemLevel + " | PlayerLevel: " + playerLevel);
+                
                 boolean shouldShow = true;
                 
                 if (isToolsCategory) {
@@ -124,9 +126,12 @@ public class ShopListener implements Listener {
                     if (playerLevel == 0) {
                         // Нет инструмента - показываем только деревянный (уровень 0)
                         shouldShow = (itemLevel == 0);
+                        Logger.info("    Player has no tool, showing only level 0. Current item level: " + itemLevel + " -> shouldShow: " + shouldShow);
                     } else {
                         // Есть инструмент - показываем текущий и следующий уровень
                         shouldShow = (itemLevel == playerLevel || itemLevel == playerLevel + 1);
+                        Logger.info("    Player has level " + playerLevel + ", showing levels " + playerLevel + " and " + (playerLevel + 1) + 
+                                   ". Current item level: " + itemLevel + " -> shouldShow: " + shouldShow);
                     }
                     
                     // Особый случай для ножниц
@@ -136,15 +141,17 @@ public class ShopListener implements Listener {
                         } else {
                             shouldShow = (itemLevel == 0 || itemLevel == 1);
                         }
+                        Logger.info("    Special case for SHEARS: shouldShow=" + shouldShow);
                     }
                 }
                 
                 if (!shouldShow) {
                     openInv.setItem(i, createPlaceholderItem());
                     hiddenCount++;
-                    Logger.info("  ❌ Hidden " + item.getType().name() + " (level " + itemLevel + ")");
+                    Logger.info("  ❌ Hidden " + item.getType().name());
                 } else {
                     visibleCount++;
+                    Logger.info("  ✅ Visible " + item.getType().name());
                 }
             }
         }
@@ -156,10 +163,19 @@ public class ShopListener implements Listener {
         if (item == null) return false;
         
         Material type = item.getType();
+        String name = "";
+        if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+            name = item.getItemMeta().getDisplayName();
+        }
+        
         return type.name().contains("STAINED_GLASS_PANE") ||
                type == Material.ARROW ||
                type == Material.BARRIER ||
-               type == Material.NETHER_STAR;
+               type == Material.NETHER_STAR ||
+               name.toLowerCase().contains("назад") || 
+               name.toLowerCase().contains("back") ||
+               name.toLowerCase().contains("страница") || 
+               name.toLowerCase().contains("page");
     }
     
     private ItemStack createPlaceholderItem() {
