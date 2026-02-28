@@ -7,7 +7,8 @@ import io.github.pronze.sba.utils.Logger;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.screamingsandals.bedwars.api.events.BedwarsPlayerJoinedEvent;
+import org.screamingsandals.bedwars.api.events.BedwarsGameStartedEvent;
+import org.screamingsandals.bedwars.api.events.BedwarsGameEndingEvent;
 import org.screamingsandals.bedwars.api.events.BedwarsPlayerLeaveEvent;
 import org.screamingsandals.lib.utils.annotations.Service;
 import org.screamingsandals.lib.utils.annotations.methods.OnPostEnable;
@@ -23,34 +24,52 @@ public class ToolCacheListener implements Listener {
     }
     
     /**
-     * Создаём кэш при входе в игру (как в BedWars1058 onArenaJoin)
+     * Создаём кэш для всех игроков при старте игры
      */
     @EventHandler
-    public void onPlayerJoinArena(BedwarsPlayerJoinedEvent event) {
-        Player player = event.getPlayer();
-        if (player == null) return;
+    public void onGameStart(BedwarsGameStartedEvent event) {
+        var game = event.getGame();
         
-        // Создаём или очищаем данные при входе
-        ToolLevels levels = ToolLevels.getOrCreate(player.getUniqueId());
-        levels.setPickaxeLevel(0);
-        levels.setAxeLevel(0);
-        levels.setShearsLevel(0);
-        levels.setPickaxeSlot(-1);
-        levels.setAxeSlot(-1);
-        levels.setShearsSlot(-1);
-        
-        Logger.info("📦 Tool cache created for player: " + player.getName());
+        for (Player player : game.getConnectedPlayers()) {
+            if (player == null) continue;
+            
+            // Создаём или очищаем данные при старте игры
+            ToolLevels levels = ToolLevels.getOrCreate(player.getUniqueId());
+            levels.setPickaxeLevel(0);
+            levels.setAxeLevel(0);
+            levels.setShearsLevel(0);
+            levels.setPickaxeSlot(-1);
+            levels.setAxeSlot(-1);
+            levels.setShearsSlot(-1);
+            
+            Logger.info("📦 Tool cache created for player: " + player.getName() + " (game started)");
+        }
     }
     
     /**
-     * Удаляем кэш при выходе из игры (как в BedWars1058 onArenaLeave)
+     * Очищаем кэш для всех игроков при завершении игры
      */
     @EventHandler
-    public void onPlayerLeaveArena(BedwarsPlayerLeaveEvent event) {
+    public void onGameEnd(BedwarsGameEndingEvent event) {
+        var game = event.getGame();
+        
+        for (Player player : game.getConnectedPlayers()) {
+            if (player == null) continue;
+            
+            ToolUpgradeManager.getInstance().removePlayerData(player.getUniqueId());
+            Logger.info("🗑️ Tool cache removed for player: " + player.getName() + " (game ended)");
+        }
+    }
+    
+    /**
+     * Очищаем кэш если игрок выходит до конца игры
+     */
+    @EventHandler
+    public void onPlayerLeave(BedwarsPlayerLeaveEvent event) {
         Player player = event.getPlayer();
         if (player == null) return;
         
         ToolUpgradeManager.getInstance().removePlayerData(player.getUniqueId());
-        Logger.info("🗑️ Tool cache removed for player: " + player.getName());
+        Logger.info("🗑️ Tool cache removed for player: " + player.getName() + " (player left)");
     }
 }
