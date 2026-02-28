@@ -180,6 +180,19 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
             AtomicReference<org.screamingsandals.lib.item.ItemStack> materialItem, PlayerItemInfo itemInfo,
             ItemSpawnerType type, AtomicReference<String[]> messageOnFail) {
         
+        // ОТЛАДКА
+        Logger.info("=== PURCHASE DEBUG ===");
+        Logger.info("Player: " + player.getName());
+        Logger.info("Item: " + newItem.get().getType().name());
+        Logger.info("Properties size: " + itemInfo.getProperties().size());
+        
+        for (var property : itemInfo.getProperties()) {
+            if (property.hasName()) {
+                Logger.info("  Property: " + property.getPropertyName());
+            }
+        }
+        Logger.info("=====================");
+        
         boolean shouldSellStack = true;
         String materialName = newItem.get().getType().name();
         
