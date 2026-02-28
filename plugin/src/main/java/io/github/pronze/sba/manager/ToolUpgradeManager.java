@@ -44,13 +44,17 @@ public class ToolUpgradeManager {
     private boolean upgradeAxe = true;
     private boolean upgradeShears = true;
     
-    // Цены для каждого уровня
+    // Цены для каждого уровня как в upgradeShop
+    // деревянная -> каменная: 10 iron
+    // каменная -> железная: 10 iron
+    // железная -> алмазная: 3 gold
+    // алмазная (макс): 6 gold
     @Getter
-    private final List<Integer> pickaxePrices = Arrays.asList(10, 10, 3, 6); // дерево, камень, железо, алмаз
+    private final List<Integer> pickaxePrices = Arrays.asList(10, 10, 3, 6);
     @Getter
-    private final List<Integer> axePrices = Arrays.asList(10, 10, 3, 6);     // дерево, камень, железо, алмаз
+    private final List<Integer> axePrices = Arrays.asList(10, 10, 3, 6);
     @Getter
-    private final List<Integer> shearsPrices = Arrays.asList(16, 32);        // обычные, улучшенные
+    private final List<Integer> shearsPrices = Arrays.asList(16, 32);
     
     private boolean initialized = false;
     
@@ -322,6 +326,7 @@ public class ToolUpgradeManager {
                             levels.setShearsSlot(i);
                             break;
                     }
+                    Logger.info("Found " + type + " at slot " + slot);
                     break;
                 }
             }
@@ -331,7 +336,11 @@ public class ToolUpgradeManager {
             ItemStack newTool = createToolItem(type, newLevel);
             if (newTool != null) {
                 inv.setItem(slot, newTool);
+                Logger.info("Updated " + type + " to level " + newLevel + " at slot " + slot);
             }
+        } else {
+            Logger.info("No slot found for " + type + ", giving new item");
+            giveToolItem(player, type, newLevel);
         }
     }
     
@@ -339,6 +348,11 @@ public class ToolUpgradeManager {
      * Попытка улучшить инструмент
      */
     public boolean upgradeTool(Player player, ToolType type, ItemSpawnerType currencyType) {
+        Logger.info("=== UPGRADE TOOL CALLED ===");
+        Logger.info("Player: " + player.getName());
+        Logger.info("Tool type: " + type);
+        Logger.info("Currency: " + currencyType.getName());
+        
         if (player == null) return false;
         
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
@@ -354,10 +368,13 @@ public class ToolUpgradeManager {
                 currentLevel = levels.getShearsLevel();
                 break;
             default:
+                Logger.info("Invalid tool type");
                 return false;
         }
+        Logger.info("Current level: " + currentLevel);
         
         if (isMaxLevel(type, currentLevel)) {
+            Logger.info("Max level reached");
             LanguageService.getInstance().get("shop.max_tool_level")
                 .replace("%tool%", type.name().toLowerCase())
                 .send(Players.wrapPlayer(player));
@@ -367,15 +384,24 @@ public class ToolUpgradeManager {
         // Получаем цену следующего уровня
         int nextLevel = currentLevel + 1;
         int price = getCurrentPrice(type, nextLevel);
-        if (price <= 0) return false;
+        Logger.info("Next level: " + nextLevel + ", price: " + price);
+        
+        if (price <= 0) {
+            Logger.info("Invalid price");
+            return false;
+        }
         
         // Проверяем ресурсы
         var game = Main.getInstance().getGameOfPlayer(player);
-        if (game == null) return false;
+        if (game == null) {
+            Logger.info("Game is null");
+            return false;
+        }
         
         var stack = currencyType.getStack(price);
         
         if (!player.getInventory().containsAtLeast(stack, price)) {
+            Logger.info("Not enough money");
             LanguageService.getInstance().get("shop.not_enough_money")
                 .replace("%resource%", currencyType.getName())
                 .replace("%price%", String.valueOf(price))
@@ -389,11 +415,13 @@ public class ToolUpgradeManager {
         event.setPrice(String.valueOf(price));
         
         if (event.isCancelled()) {
+            Logger.info("Event cancelled");
             return false;
         }
         
         // Снимаем ресурсы
         player.getInventory().removeItem(stack);
+        Logger.info("Removed " + price + " " + currencyType.getName());
         
         // Увеличиваем уровень
         switch (type) {
@@ -407,6 +435,7 @@ public class ToolUpgradeManager {
                 levels.setShearsLevel(nextLevel);
                 break;
         }
+        Logger.info("New level set to: " + nextLevel);
         
         // Обновляем предмет в инвентаре
         updateToolInInventory(player, type, nextLevel, levels);
@@ -417,6 +446,7 @@ public class ToolUpgradeManager {
             .replace("%level%", String.valueOf(nextLevel + 1))
             .send(Players.wrapPlayer(player));
         
+        Logger.info("=== UPGRADE TOOL SUCCESS ===");
         return true;
     }
     
@@ -472,6 +502,7 @@ public class ToolUpgradeManager {
                     break;
             }
             updateToolInInventory(player, type, newLevel, levels);
+            Logger.info("Downgraded " + type + " for " + player.getName() + " to level " + newLevel);
         }
     }
     
