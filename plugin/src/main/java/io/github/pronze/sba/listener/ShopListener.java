@@ -12,11 +12,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.screamingsandals.bedwars.Main;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.screamingsandals.bedwars.api.events.BedwarsOpenShopEvent;
-import org.screamingsandals.bedwars.api.game.Game;
-import org.screamingsandals.lib.tasker.Tasker;
-import org.screamingsandals.lib.tasker.TaskerTime;
 import org.screamingsandals.lib.utils.annotations.Service;
 import org.screamingsandals.lib.utils.annotations.methods.OnPostEnable;
 
@@ -36,14 +33,17 @@ public class ShopListener implements Listener {
         // Проверяем, включены ли улучшения инструментов
         if (!SBAConfig.getInstance().isToolUpgradeEnabled()) return;
         
-        // Откладываем фильтрацию, чтобы инвентарь успел создаться
-        Tasker.runDelayed(() -> {
-            try {
-                filterShopInventory(player);
-            } catch (Exception e) {
-                Logger.error("Error filtering shop inventory: " + e.getMessage());
+        // Откладываем фильтрацию с помощью BukkitRunnable
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                try {
+                    filterShopInventory(player);
+                } catch (Exception e) {
+                    Logger.error("Error filtering shop inventory: " + e.getMessage());
+                }
             }
-        }, 5, TaskerTime.TICKS);
+        }.runTaskLater(SBA.getPluginInstance(), 5L); // 5 тиков задержки
     }
     
     private void filterShopInventory(Player player) {
@@ -52,7 +52,7 @@ public class ShopListener implements Listener {
         
         // Получаем название инвентаря, чтобы понять, где мы находимся
         String title = player.getOpenInventory().getTitle();
-        boolean isMainMenu = title.contains("Shop") || title.contains("Магазин");
+        boolean isMainMenu = title.contains("Shop") || title.contains("Магазин") || title.contains("Item Shop");
         boolean isToolsCategory = title.contains("Tools") || title.contains("Инструменты");
         
         for (int i = 0; i < openInv.getSize(); i++) {
@@ -114,17 +114,24 @@ public class ShopListener implements Listener {
         if (item == null) return false;
         
         Material type = item.getType();
-        String name = item.hasItemMeta() && item.getItemMeta().hasDisplayName() 
-            ? item.getItemMeta().getDisplayName() : "";
+        String name = "";
+        if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+            name = item.getItemMeta().getDisplayName();
+        }
         
         // Проверяем, является ли предмет навигационным (стекла, стрелки назад и т.д.)
         return type == Material.GREEN_STAINED_GLASS_PANE ||
                type == Material.RED_STAINED_GLASS_PANE ||
                type == Material.GRAY_STAINED_GLASS_PANE ||
+               type == Material.BLACK_STAINED_GLASS_PANE ||
                type == Material.ARROW ||
                type == Material.BARRIER ||
-               name.contains("назад") || name.contains("back") ||
-               name.contains("страница") || name.contains("page");
+               name.toLowerCase().contains("назад") || 
+               name.toLowerCase().contains("back") ||
+               name.toLowerCase().contains("страница") || 
+               name.toLowerCase().contains("page") ||
+               name.toLowerCase().contains("закрыть") ||
+               name.toLowerCase().contains("close");
     }
     
     private ItemStack createPlaceholderItem() {
