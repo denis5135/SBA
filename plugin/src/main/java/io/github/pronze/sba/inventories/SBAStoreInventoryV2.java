@@ -9,6 +9,8 @@ import io.github.pronze.sba.game.tasks.CustomTrap;
 import io.github.pronze.sba.game.tasks.CustomTrapTask;
 import io.github.pronze.sba.lib.lang.LanguageService;
 import io.github.pronze.sba.manager.PlayerItemTracker;
+import io.github.pronze.sba.manager.ToolType;
+import io.github.pronze.sba.manager.ToolUpgradeManager;
 import io.github.pronze.sba.utils.Logger;
 import io.github.pronze.sba.utils.SBAUtil;
 import io.github.pronze.sba.utils.ShopUtil;
@@ -172,7 +174,7 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 return Map.entry(false, false);
             }
         }
-        
+
         final var game = Main.getInstance().getGameOfPlayer(player);
         final var gameStorage = ArenaManager.getInstance().get(game.getName()).orElseThrow().getStorage();
         final var team = game.getTeamOfPlayer(player);
@@ -195,6 +197,21 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                     break;
                 case "boots": case "chestplate": case "helmet": case "leggings":
                     return Map.entry(ShopUtil.buyArmor(player, newItem.get().getType(), gameStorage, game), false);
+                case "pickaxe":
+                case "axe":
+                case "shears":
+                    // Запоминаем слот для инструмента
+                    ToolType toolType = ToolType.valueOf(afterUnderscore.toUpperCase());
+                    var levels = io.github.pronze.sba.manager.ToolLevels.getOrCreate(player.getUniqueId());
+                    int slot = player.getInventory().first(newItem.get().getType());
+                    if (slot != -1) {
+                        switch (toolType) {
+                            case PICKAXE -> levels.setPickaxeSlot(slot);
+                            case AXE -> levels.setAxeSlot(slot);
+                            case SHEARS -> levels.setShearsSlot(slot);
+                        }
+                    }
+                    break;
             }
 
             if (shouldSellStack) {
@@ -531,6 +548,19 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                                 Players.wrapPlayer(teamPlayer).sendMessage(upgradeMessage);
                             });
                         } else shouldSellStack = false;
+                    }
+                    break;
+                    
+                case "pickaxe":
+                case "axe":
+                case "shears":
+                    // Обработка улучшения инструментов
+                    ToolType toolType = ToolType.valueOf(propertyName.toUpperCase());
+                    
+                    // Пытаемся улучшить
+                    boolean success = ToolUpgradeManager.getInstance().upgradeTool(player, toolType, type);
+                    if (!success) {
+                        shouldSellStack = false;
                     }
                     break;
                     
