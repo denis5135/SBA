@@ -27,7 +27,7 @@ public class ToolUpgradeListener implements Listener {
     }
     
     /**
-     * Обработка смерти - понижение инструментов (как manageDeath в BedWars1058)
+     * Обработка смерти - понижение инструментов
      */
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
@@ -60,7 +60,7 @@ public class ToolUpgradeListener implements Listener {
         
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
         
-        // Выдаём инструменты текущего уровня (giveItems из BedWars1058)
+        // Выдаём инструменты текущего уровня
         if (levels.getPickaxeLevel() > 0) {
             ToolUpgradeManager.getInstance().giveToolItem(player, ToolType.PICKAXE, levels.getPickaxeLevel());
         }
