@@ -50,15 +50,11 @@ public class ShopListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player)) return;
         
         Player player = (Player) event.getWhoClicked();
-        String title = event.getView().getTitle();
         
         if (event.getCurrentItem() != null && event.getCurrentItem().getType() != Material.AIR) {
             ItemStack clicked = event.getCurrentItem();
             
-            // Клик по любой иконке может привести к смене категории
             if (!isNavigationItem(clicked)) {
-                Logger.info("🖱️ Item clicked: " + clicked.getType().name());
-                
                 new BukkitRunnable() {
                     @Override
                     public void run() {
@@ -89,36 +85,17 @@ public class ShopListener implements Listener {
         String title = player.getOpenInventory().getTitle();
         Logger.info("🔍 Filtering inventory: '" + title + "' (reason: " + reason + ")");
         
-        // Определяем категорию по наличию инструментов
-        boolean hasPickaxe = false;
-        boolean hasAxe = false;
-        boolean hasShears = false;
+        // Считаем инструменты
         int toolCount = 0;
-        
         for (ItemStack item : openInv.getContents()) {
             if (item == null || item.getType() == Material.AIR) continue;
-            
-            ToolType toolType = ToolUpgradeManager.getInstance().getToolType(item);
-            if (toolType != null) {
+            if (ToolUpgradeManager.getInstance().getToolType(item) != null) {
                 toolCount++;
-                switch (toolType) {
-                    case PICKAXE:
-                        hasPickaxe = true;
-                        break;
-                    case AXE:
-                        hasAxe = true;
-                        break;
-                    case SHEARS:
-                        hasShears = true;
-                        break;
-                }
             }
         }
         
         boolean isToolsCategory = toolCount >= 3; // Если много инструментов - это категория инструментов
-        boolean isMainMenu = !isToolsCategory && title.contains("Shop") || title.contains("Магазин");
-        
-        Logger.info("isMainMenu: " + isMainMenu + ", isToolsCategory: " + isToolsCategory + ", toolCount: " + toolCount);
+        Logger.info("toolCount: " + toolCount + ", isToolsCategory: " + isToolsCategory);
         
         int hiddenCount = 0;
         int visibleCount = 0;
@@ -134,18 +111,19 @@ public class ShopListener implements Listener {
                 int itemLevel = ToolUpgradeManager.getInstance().getCurrentLevel(item);
                 int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
                 
-                boolean shouldShow = false;
+                boolean shouldShow = true; // По умолчанию показываем
                 
-                if (isMainMenu) {
-                    shouldShow = true; // В главном меню показываем всё
-                } else if (isToolsCategory) {
-                    // В категории инструментов фильтруем
+                if (isToolsCategory) {
+                    // В категории инструментов фильтруем!
                     if (playerLevel == 0) {
+                        // Нет инструмента - показываем только деревянный (уровень 0)
                         shouldShow = (itemLevel == 0);
                     } else {
+                        // Есть инструмент - показываем текущий и следующий уровень
                         shouldShow = (itemLevel == playerLevel || itemLevel == playerLevel + 1);
                     }
                     
+                    // Особый случай для ножниц
                     if (toolType == ToolType.SHEARS) {
                         if (playerLevel == 0) {
                             shouldShow = (itemLevel == 0);
@@ -153,9 +131,8 @@ public class ShopListener implements Listener {
                             shouldShow = (itemLevel == 0 || itemLevel == 1);
                         }
                     }
-                } else {
-                    shouldShow = true;
                 }
+                // В главном меню всегда показываем (isToolsCategory = false)
                 
                 if (!shouldShow) {
                     openInv.setItem(i, createPlaceholderItem());
@@ -163,6 +140,7 @@ public class ShopListener implements Listener {
                     Logger.info("  ❌ Hidden " + item.getType().name() + " (level " + itemLevel + ")");
                 } else {
                     visibleCount++;
+                    Logger.info("  ✅ Visible " + item.getType().name() + " (level " + itemLevel + ")");
                 }
             }
         }
