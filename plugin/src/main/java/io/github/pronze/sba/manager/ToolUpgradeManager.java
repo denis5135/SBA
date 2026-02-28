@@ -4,6 +4,7 @@ import io.github.pronze.sba.SBA;
 import io.github.pronze.sba.config.SBAConfig;
 import io.github.pronze.sba.events.PlayerToolUpgradeEvent;
 import io.github.pronze.sba.lib.lang.LanguageService;
+import io.github.pronze.sba.utils.Logger;
 import lombok.Getter;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -58,7 +59,7 @@ public class ToolUpgradeManager {
     public void init() {
         instance = this;
         loadConfig();
-        SBA.getInstance().getLogger().info("ToolUpgradeManager initialized!");
+        Logger.info("ToolUpgradeManager initialized!");
     }
     
     public static ToolUpgradeManager getInstance() {
