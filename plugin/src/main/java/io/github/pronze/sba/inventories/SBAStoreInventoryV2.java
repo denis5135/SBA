@@ -55,7 +55,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 @Service
 @ServiceDependencies(dependsOn = {
@@ -205,30 +204,37 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                        afterUnderscoreLower.equals("axe") || 
                        afterUnderscoreLower.equals("shears")) {
                 
-                // Запоминаем слот для инструмента
-                ToolType toolType = null;
-                if (afterUnderscoreLower.equals("pickaxe")) {
-                    toolType = ToolType.PICKAXE;
-                } else if (afterUnderscoreLower.equals("axe")) {
-                    toolType = ToolType.AXE;
-                } else if (afterUnderscoreLower.equals("shears")) {
-                    toolType = ToolType.SHEARS;
-                }
-                
-                if (toolType != null) {
-                    var levels = io.github.pronze.sba.manager.ToolLevels.getOrCreate(player.getUniqueId());
-                    int slot = player.getInventory().first(newItem.get().getType());
-                    if (slot != -1) {
-                        switch (toolType) {
-                            case PICKAXE:
-                                levels.setPickaxeSlot(slot);
-                                break;
-                            case AXE:
-                                levels.setAxeSlot(slot);
-                                break;
-                            case SHEARS:
-                                levels.setShearsSlot(slot);
-                                break;
+                // Проверяем, включены ли улучшения инструментов
+                if (SBAConfig.getInstance().isToolUpgradeEnabled()) {
+                    // Запоминаем слот для инструмента
+                    ToolType toolType = null;
+                    if (afterUnderscoreLower.equals("pickaxe")) {
+                        toolType = ToolType.PICKAXE;
+                    } else if (afterUnderscoreLower.equals("axe")) {
+                        toolType = ToolType.AXE;
+                    } else if (afterUnderscoreLower.equals("shears")) {
+                        toolType = ToolType.SHEARS;
+                    }
+                    
+                    if (toolType != null) {
+                        var levels = io.github.pronze.sba.manager.ToolLevels.getOrCreate(player.getUniqueId());
+                        int slot = player.getInventory().first(newItem.get().getType());
+                        if (slot != -1) {
+                            switch (toolType) {
+                                case PICKAXE:
+                                    levels.setPickaxeSlot(slot);
+                                    // Устанавливаем начальный уровень (0 для деревянной)
+                                    levels.setPickaxeLevel(0);
+                                    break;
+                                case AXE:
+                                    levels.setAxeSlot(slot);
+                                    levels.setAxeLevel(0);
+                                    break;
+                                case SHEARS:
+                                    levels.setShearsSlot(slot);
+                                    levels.setShearsLevel(0);
+                                    break;
+                            }
                         }
                     }
                 }
@@ -559,22 +565,28 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                        propertyName.equals("axe") || 
                        propertyName.equals("shears")) {
                 
-                // Обработка улучшения инструментов
-                ToolType toolType = null;
-                if (propertyName.equals("pickaxe")) {
-                    toolType = ToolType.PICKAXE;
-                } else if (propertyName.equals("axe")) {
-                    toolType = ToolType.AXE;
-                } else if (propertyName.equals("shears")) {
-                    toolType = ToolType.SHEARS;
-                }
-                
-                if (toolType != null) {
-                    // Пытаемся улучшить
-                    boolean success = ToolUpgradeManager.getInstance().upgradeTool(player, toolType, type);
-                    if (!success) {
-                        shouldSellStack = false;
+                // Проверяем, включены ли улучшения инструментов
+                if (SBAConfig.getInstance().isToolUpgradeEnabled()) {
+                    // Обработка улучшения инструментов
+                    ToolType toolType = null;
+                    if (propertyName.equals("pickaxe")) {
+                        toolType = ToolType.PICKAXE;
+                    } else if (propertyName.equals("axe")) {
+                        toolType = ToolType.AXE;
+                    } else if (propertyName.equals("shears")) {
+                        toolType = ToolType.SHEARS;
                     }
+                    
+                    if (toolType != null) {
+                        // Пытаемся улучшить
+                        boolean success = ToolUpgradeManager.getInstance().upgradeTool(player, toolType, type);
+                        if (!success) {
+                            shouldSellStack = false;
+                        }
+                    }
+                } else {
+                    // Если улучшения выключены - просто продаём предмет
+                    return Map.entry(true, true);
                 }
             } else {
                 // Проверяем, является ли свойство энчантом
