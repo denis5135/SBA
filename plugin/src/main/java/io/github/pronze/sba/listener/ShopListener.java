@@ -94,7 +94,7 @@ public class ShopListener implements Listener {
             }
         }
         
-        boolean isToolsCategory = toolCount >= 3; // Если много инструментов - это категория инструментов
+        boolean isToolsCategory = toolCount >= 3;
         Logger.info("toolCount: " + toolCount + ", isToolsCategory: " + isToolsCategory);
         
         int hiddenCount = 0;
@@ -106,12 +106,18 @@ public class ShopListener implements Listener {
             
             if (isNavigationItem(item)) continue;
             
+            // Золотая кирка - это иконка категории, её НИКОГДА не скрываем
+            if (item.getType() == Material.GOLDEN_PICKAXE) {
+                visibleCount++;
+                continue;
+            }
+            
             ToolType toolType = ToolUpgradeManager.getInstance().getToolType(item);
             if (toolType != null) {
                 int itemLevel = ToolUpgradeManager.getInstance().getCurrentLevel(item);
                 int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
                 
-                boolean shouldShow = true; // По умолчанию показываем
+                boolean shouldShow = true;
                 
                 if (isToolsCategory) {
                     // В категории инструментов фильтруем!
@@ -132,7 +138,6 @@ public class ShopListener implements Listener {
                         }
                     }
                 }
-                // В главном меню всегда показываем (isToolsCategory = false)
                 
                 if (!shouldShow) {
                     openInv.setItem(i, createPlaceholderItem());
