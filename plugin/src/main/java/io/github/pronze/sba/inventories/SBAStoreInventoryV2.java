@@ -126,7 +126,22 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 ToolType toolType = ToolUpgradeManager.getInstance().getToolType(originalItem);
                 if (toolType != null) {
                     // Это инструмент - проверяем, должен ли он быть виден
-                    boolean shouldShow = ToolUpgradeManager.getInstance().shouldShowInShop(player, originalItem);
+                    int itemLevel = ToolUpgradeManager.getInstance().getCurrentLevel(originalItem);
+                    int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
+                    
+                    // Отладочный вывод
+                    // Logger.info("Tool: " + toolType + " ItemLevel: " + itemLevel + " PlayerLevel: " + playerLevel);
+                    
+                    boolean shouldShow = false;
+                    
+                    // ВСЕГДА показываем деревянные инструменты (уровень 0) если игрок их ещё не купил
+                    if (playerLevel == 0 && itemLevel == 0) {
+                        shouldShow = true; // Показываем деревянные инструменты новым игрокам
+                    }
+                    // Если игрок уже имеет инструмент, показываем текущий и следующий уровень
+                    else if (playerLevel > 0) {
+                        shouldShow = (itemLevel == playerLevel || itemLevel == playerLevel + 1);
+                    }
                     
                     if (!shouldShow) {
                         // Скрываем предмет, заменяя его на пустой
