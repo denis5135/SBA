@@ -21,9 +21,10 @@ import io.github.pronze.sba.inventories.SBAStoreInventoryV2;
 import io.github.pronze.sba.lang.ILanguageService;
 import io.github.pronze.sba.lib.lang.LanguageService;
 import io.github.pronze.sba.levels.LevelListener;
+import io.github.pronze.sba.levels.LevelConfig;
+import io.github.pronze.sba.levels.PlayerLevelManager;
 import io.github.pronze.sba.listener.*;
-import io.github.pronze.sba.manager.IArenaManager;
-import io.github.pronze.sba.manager.IPartyManager;
+import io.github.pronze.sba.manager.*;
 import io.github.pronze.sba.party.PartyManager;
 import io.github.pronze.sba.placeholderapi.SBAExpansion;
 import io.github.pronze.sba.service.*;
@@ -122,7 +123,11 @@ import static io.github.pronze.sba.utils.MessageUtils.showErrorMessage;
         SpawnerProtectionListener.class,
         SidebarManager.class,
         AntiCheatIntegration.class,
-        QuickBuyConfig.class
+        QuickBuyConfig.class,
+        ToolType.class,
+        ToolLevels.class,
+        ToolUpgradeManager.class,
+        ToolUpgradeListener.class
 })
 public class SBA implements AddonAPI {
 
@@ -231,12 +236,12 @@ public class SBA implements AddonAPI {
 
         HologramManager.setPreferDisplayEntities(Main.getConfigurator().config.getBoolean("prefer-1-19-4-display-entities"));
 
-        // ========== НОВЫЙ КОД: Регистрация системы уровней ==========
+        // ========== ИНИЦИАЛИЗАЦИЯ СИСТЕМЫ УРОВНЕЙ ==========
         if (!broken) {
             try {
                 // Инициализируем систему уровней
-                io.github.pronze.sba.levels.LevelConfig.getInstance();
-                io.github.pronze.sba.levels.PlayerLevelManager.getInstance();
+                LevelConfig.getInstance();
+                PlayerLevelManager.getInstance();
                 
                 // Регистрируем слушатель
                 registerListener(new LevelListener());
@@ -246,7 +251,23 @@ public class SBA implements AddonAPI {
                 e.printStackTrace();
             }
         }
-        // ========== КОНЕЦ НОВОГО КОДА ==========
+        // ========== КОНЕЦ ИНИЦИАЛИЗАЦИИ УРОВНЕЙ ==========
+
+        // ========== ИНИЦИАЛИЗАЦИЯ СИСТЕМЫ ИНСТРУМЕНТОВ ==========
+        if (!broken) {
+            try {
+                // Принудительно инициализируем ToolUpgradeManager
+                ToolUpgradeManager.getInstance();
+                
+                // Регистрируем слушатель
+                registerListener(new ToolUpgradeListener());
+                Logger.info("✅ Tool upgrade system initialized successfully!");
+            } catch (Exception e) {
+                Logger.error("❌ Failed to initialize tool upgrade system: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        // ========== КОНЕЦ ИНИЦИАЛИЗАЦИИ ИНСТРУМЕНТОВ ==========
 
         Logger.setMode(Level.WARNING);
         if (!broken) {
