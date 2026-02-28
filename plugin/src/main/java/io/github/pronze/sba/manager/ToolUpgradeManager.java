@@ -202,6 +202,39 @@ public class ToolUpgradeManager {
     }
     
     /**
+     * Проверить, должен ли предмет быть виден в магазине
+     */
+    public boolean shouldShowInShop(Player player, ItemStack item) {
+        if (player == null || item == null) return false;
+        
+        ToolType type = getToolType(item);
+        if (type == null) return true; // Не инструмент - показываем всегда
+        
+        int itemLevel = getCurrentLevel(item);
+        int playerLevel = getToolLevel(player, type);
+        
+        // Для ножниц особый случай (только 2 уровня)
+        if (type == ToolType.SHEARS) {
+            if (playerLevel == 0) {
+                // Игрок не имеет ножниц - показываем обычные
+                return itemLevel == 0;
+            } else {
+                // Игрок имеет обычные ножницы - показываем обычные и улучшенные
+                return itemLevel == 0 || itemLevel == 1;
+            }
+        }
+        
+        // Для кирки и топора (4 уровня)
+        if (playerLevel == 0) {
+            // Игрок не имеет инструмента - показываем только деревянный
+            return itemLevel == 0;
+        } else {
+            // Игрок имеет инструмент - показываем текущий и следующий уровень
+            return itemLevel == playerLevel || itemLevel == playerLevel + 1;
+        }
+    }
+    
+    /**
      * Создать предмет для указанного уровня
      */
     public ItemStack createToolItem(ToolType type, int level) {
@@ -236,6 +269,7 @@ public class ToolUpgradeManager {
     }
     
     /**
+     * Аналог CategoryContent.execute() из BedWars1058
      * Попытка улучшить инструмент
      */
     public boolean upgradeTool(Player player, ToolType type, ItemSpawnerType currencyType) {
@@ -309,7 +343,7 @@ public class ToolUpgradeManager {
                 break;
         }
         
-        // Обновляем предмет в инвентаре
+        // Обновляем предмет в инвентаре (как в BedWars1058 upgrade() + giveItems())
         updateToolInInventory(player, type, newLevel, levels);
         
         // Сообщение
@@ -338,7 +372,47 @@ public class ToolUpgradeManager {
     }
     
     /**
-     * Обновить инструмент в инвентаре
+     * Обновить инструмент в инвентаре (giveItems из BedWars1058)
+     */
+    public void giveToolItem(Player player, ToolType type, int level) {
+        if (player == null) return;
+        
+        var levels = ToolLevels.getOrCreate(player.getUniqueId());
+        int slot = -1;
+        
+        switch (type) {
+            case PICKAXE:
+                slot = levels.getPickaxeSlot();
+                break;
+            case AXE:
+                slot = levels.getAxeSlot();
+                break;
+            case SHEARS:
+                slot = levels.getShearsSlot();
+                break;
+        }
+        
+        // Если слот не запомнен, ищем первый пустой слот
+        if (slot == -1) {
+            PlayerInventory inv = player.getInventory();
+            for (int i = 0; i < inv.getSize(); i++) {
+                if (inv.getItem(i) == null || inv.getItem(i).getType() == Material.AIR) {
+                    slot = i;
+                    break;
+                }
+            }
+        }
+        
+        if (slot != -1) {
+            ItemStack newTool = createToolItem(type, level);
+            if (newTool != null) {
+                player.getInventory().setItem(slot, newTool);
+            }
+        }
+    }
+    
+    /**
+     * Обновить инструмент в инвентаре (замена в том же слоте)
      */
     private void updateToolInInventory(Player player, ToolType type, int newLevel, ToolLevels levels) {
         if (player == null) return;
@@ -389,6 +463,7 @@ public class ToolUpgradeManager {
     }
     
     /**
+     * Аналог manageDeath из BedWars1058
      * Понизить уровень инструмента при смерти
      */
     public void downgradeTool(Player player, ToolType type) {
