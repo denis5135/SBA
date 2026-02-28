@@ -51,20 +51,39 @@ public class ShopListener implements Listener {
         }
     }
     
-    @EventHandler
+        @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
         
         Player player = (Player) event.getWhoClicked();
         String title = event.getView().getTitle();
         
+        // Логируем каждый клик
+        Logger.info("🖱️ Click in inventory: '" + title + "' by " + player.getName());
+        Logger.info("   Slot: " + event.getSlot());
+        Logger.info("   Raw Slot: " + event.getRawSlot());
+        
+        if (event.getCurrentItem() != null) {
+            ItemStack clicked = event.getCurrentItem();
+            Logger.info("   Clicked item: " + clicked.getType().name());
+            
+            if (clicked.hasItemMeta() && clicked.getItemMeta().hasDisplayName()) {
+                Logger.info("   Item name: " + clicked.getItemMeta().getDisplayName());
+            }
+        }
+        
         // Если кликнули по предмету
         if (event.getCurrentItem() != null && event.getCurrentItem().getType() != Material.AIR) {
             ItemStack clicked = event.getCurrentItem();
             
-            // Проверяем, является ли кликнутый предмет иконкой категории
-            if (isCategoryIcon(clicked)) {
-                Logger.info("🖱️ Category clicked: " + clicked.getType().name() + " in inventory: '" + title + "'");
+            // Проверяем все возможные иконки категорий
+            if (clicked.getType().name().contains("PICKAXE") ||
+                clicked.getType().name().contains("SWORD") ||
+                clicked.getType().name().contains("BOW") ||
+                clicked.getType().name().contains("BOOTS") ||
+                clicked.getType() == Material.SHEARS) {
+                
+                Logger.info("🔧 CATEGORY ICON CLICKED! Type: " + clicked.getType().name());
                 
                 // Даём время на открытие новой категории
                 new BukkitRunnable() {
@@ -72,9 +91,14 @@ public class ShopListener implements Listener {
                     public void run() {
                         String newTitle = player.getOpenInventory().getTitle();
                         Logger.info("New inventory after click: '" + newTitle + "'");
-                        scheduleInventoryFilter(player, "category click - new title: " + newTitle);
+                        
+                        if (!newTitle.equals(title)) {
+                            scheduleInventoryFilter(player, "category click - new title: " + newTitle);
+                        } else {
+                            Logger.info("Title didn't change, category might not have opened");
+                        }
                     }
-                }.runTaskLater(SBA.getPluginInstance(), 15L);
+                }.runTaskLater(SBA.getPluginInstance(), 20L);
             }
         }
     }
