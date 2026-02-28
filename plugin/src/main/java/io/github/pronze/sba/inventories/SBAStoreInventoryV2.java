@@ -114,8 +114,32 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
     @Override
     public void onPostGenerateItem(ItemRenderEvent event) {
         Player player = event.getPlayer().as(Player.class);
+        if (player == null) return;
+        
+        ItemStack originalItem = event.getStack().as(ItemStack.class);
         String itemName = event.getStack().getMaterial().platformName();
         
+        // Проверяем, включена ли система улучшения инструментов
+        if (SBAConfig.getInstance().isToolUpgradeEnabled() && originalItem != null) {
+            try {
+                // Проверяем, является ли предмет инструментом
+                ToolType toolType = ToolUpgradeManager.getInstance().getToolType(originalItem);
+                if (toolType != null) {
+                    // Это инструмент - проверяем, должен ли он быть виден
+                    boolean shouldShow = ToolUpgradeManager.getInstance().shouldShowInShop(player, originalItem);
+                    
+                    if (!shouldShow) {
+                        // Скрываем предмет, заменяя его на пустой
+                        event.setStack(org.screamingsandals.lib.item.builder.ItemStackFactory.getAir());
+                        return;
+                    }
+                }
+            } catch (Exception e) {
+                Logger.trace("Error filtering tool in shop: " + e.getMessage());
+            }
+        }
+        
+        // Оригинальная логика SBA
         String upgradedTo = PlayerItemTracker.getInstance().getNextUpgrade(player, itemName);
         
         if (upgradedTo != null) {
