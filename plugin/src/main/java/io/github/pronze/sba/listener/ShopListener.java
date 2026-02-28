@@ -84,83 +84,57 @@ public class ShopListener implements Listener {
         
         String title = player.getOpenInventory().getTitle();
         
-        // Определяем, в какой мы категории
         boolean isToolsCategory = title.contains("Tools") || title.contains("Инструменты");
-        boolean isMainMenu = title.contains("Shop") || title.contains("Магазин") || title.contains("Item Shop");
+        if (!isToolsCategory) return;
         
-        if (!isToolsCategory) return; // Фильтруем только категорию инструментов
-        
-        Logger.info("🔧 Filtering tools category for: " + player.getName());
-        
-        int hiddenCount = 0;
-        int visibleCount = 0;
+        Logger.info("🔧 Обновляем инструменты для: " + player.getName());
         
         for (int i = 0; i < openInv.getSize(); i++) {
             ItemStack item = openInv.getItem(i);
             if (item == null || item.getType() == Material.AIR) continue;
             
             if (isNavigationItem(item)) continue;
-            
-            // Золотая кирка - иконка категории, не трогаем
-            if (item.getType() == Material.GOLDEN_PICKAXE) {
-                visibleCount++;
-                continue;
-            }
+            if (item.getType() == Material.GOLDEN_PICKAXE) continue; // Иконка категории
             
             ToolType toolType = ToolUpgradeManager.getInstance().getToolType(item);
             if (toolType != null) {
-                int itemLevel = ToolUpgradeManager.getInstance().getCurrentLevel(item);
                 int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
                 
-                boolean shouldShow = false;
+                // Создаём предмет нужного уровня
+                ItemStack newItem = ToolUpgradeManager.getInstance().createToolItem(toolType, playerLevel);
                 
-                // Логика как в BedWars 1058
-                if (playerLevel == 0) {
-                    // Не куплено - показываем только деревянный (уровень 0)
-                    shouldShow = (itemLevel == 0);
-                } else if (playerLevel >= 3) {
-                    // Максимальный уровень - показываем красное стекло
-                    if (itemLevel == 3) {
-                        // Это алмазный инструмент - показываем
-                        shouldShow = true;
-                    } else {
-                        // Заменяем на красное стекло
-                        openInv.setItem(i, createMaxLevelItem());
-                        hiddenCount++;
-                        continue;
-                    }
-                } else {
-                    // Есть инструмент - показываем текущий и следующий уровень
-                    shouldShow = (itemLevel == playerLevel || itemLevel == playerLevel + 1);
-                }
-                
-                // Особый случай для ножниц (только 2 уровня)
-                if (toolType == ToolType.SHEARS) {
-                    if (playerLevel == 0) {
-                        shouldShow = (itemLevel == 0);
-                    } else if (playerLevel >= 1) {
-                        if (itemLevel == 1) {
-                            shouldShow = true;
-                        } else {
-                            openInv.setItem(i, createMaxLevelItem());
-                            hiddenCount++;
-                            continue;
+                if (newItem != null) {
+                    // Копируем цену и название из оригинального предмета
+                    ItemMeta meta = newItem.getItemMeta();
+                    if (item.hasItemMeta()) {
+                        if (item.getItemMeta().hasDisplayName()) {
+                            String displayName = item.getItemMeta().getDisplayName();
+                            // Убираем старый уровень из названия
+                            displayName = displayName.replaceAll(" [IVX]+$", "");
+                            meta.setDisplayName(displayName + " " + getRomanNumber(playerLevel + 1));
+                        }
+                        if (item.getItemMeta().hasLore()) {
+                            meta.setLore(item.getItemMeta().getLore());
                         }
                     }
-                }
-                
-                if (!shouldShow) {
-                    openInv.setItem(i, createPlaceholderItem());
-                    hiddenCount++;
-                    Logger.info("  ❌ Hidden " + item.getType().name() + " (level " + itemLevel + ")");
-                } else {
-                    visibleCount++;
-                    Logger.info("  ✅ Visible " + item.getType().name() + " (level " + itemLevel + ")");
+                    newItem.setItemMeta(meta);
+                    
+                    // Заменяем предмет в магазине
+                    openInv.setItem(i, newItem);
+                    Logger.info("  Заменён на " + newItem.getType().name() + " (уровень " + (playerLevel + 1) + ")");
                 }
             }
         }
-        
-        Logger.info("Filter complete: " + visibleCount + " visible, " + hiddenCount + " hidden");
+    }
+    
+    private String getRomanNumber(int level) {
+        switch (level) {
+            case 1: return "I";
+            case 2: return "II";
+            case 3: return "III";
+            case 4: return "IV";
+            default: return String.valueOf(level);
+        }
     }
     
     private boolean isNavigationItem(ItemStack item) {
@@ -180,25 +154,5 @@ public class ShopListener implements Listener {
                name.toLowerCase().contains("back") ||
                name.toLowerCase().contains("страница") || 
                name.toLowerCase().contains("page");
-    }
-    
-    private ItemStack createPlaceholderItem() {
-        ItemStack placeholder = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta meta = placeholder.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(" ");
-            placeholder.setItemMeta(meta);
-        }
-        return placeholder;
-    }
-    
-    private ItemStack createMaxLevelItem() {
-        ItemStack item = new ItemStack(Material.RED_STAINED_GLASS_PANE);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName("§c§lМАКСИМАЛЬНЫЙ УРОВЕНЬ");
-            item.setItemMeta(meta);
-        }
-        return item;
     }
 }
