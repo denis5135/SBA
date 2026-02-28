@@ -44,13 +44,13 @@ public class ToolUpgradeManager {
     private boolean upgradeAxe = true;
     private boolean upgradeShears = true;
     
-    // Цены
+    // Цены для каждого уровня
     @Getter
-    private final List<Integer> pickaxePrices = Arrays.asList(10, 20, 30);
+    private final List<Integer> pickaxePrices = Arrays.asList(10, 20, 30, 40);
     @Getter
-    private final List<Integer> axePrices = Arrays.asList(10, 20, 30);
+    private final List<Integer> axePrices = Arrays.asList(10, 20, 30, 40);
     @Getter
-    private final List<Integer> shearsPrices = Arrays.asList(20);
+    private final List<Integer> shearsPrices = Arrays.asList(16, 20);
     
     private boolean initialized = false;
     
@@ -176,62 +176,12 @@ public class ToolUpgradeManager {
         Material material = item.getType();
         String name = material.name();
         
-        // Кирки
-        if (name.equals("WOODEN_PICKAXE")) return 0;
-        if (name.equals("STONE_PICKAXE")) return 1;
-        if (name.equals("IRON_PICKAXE")) return 2;
-        if (name.equals("DIAMOND_PICKAXE")) return 3;
-        
-        // Топоры
-        if (name.equals("WOODEN_AXE")) return 0;
-        if (name.equals("STONE_AXE")) return 1;
-        if (name.equals("IRON_AXE")) return 2;
-        if (name.equals("DIAMOND_AXE")) return 3;
+        if (name.equals("WOODEN_PICKAXE") || name.equals("WOODEN_AXE")) return 0;
+        if (name.equals("STONE_PICKAXE") || name.equals("STONE_AXE")) return 1;
+        if (name.equals("IRON_PICKAXE") || name.equals("IRON_AXE")) return 2;
+        if (name.equals("DIAMOND_PICKAXE") || name.equals("DIAMOND_AXE")) return 3;
         
         return -1;
-    }
-    
-    /**
-     * Получить уровень игрока для данного предмета
-     */
-    public int getPlayerLevelForItem(Player player, ItemStack item) {
-        if (player == null || item == null) return -1;
-        ToolType type = getToolType(item);
-        if (type == null) return -1;
-        return getToolLevel(player, type);
-    }
-    
-    /**
-     * Проверить, должен ли предмет быть виден в магазине
-     */
-    public boolean shouldShowInShop(Player player, ItemStack item) {
-        if (player == null || item == null) return false;
-        
-        ToolType type = getToolType(item);
-        if (type == null) return true; // Не инструмент - показываем всегда
-        
-        int itemLevel = getCurrentLevel(item);
-        int playerLevel = getToolLevel(player, type);
-        
-        // Для ножниц особый случай (только 2 уровня)
-        if (type == ToolType.SHEARS) {
-            if (playerLevel == 0) {
-                // Игрок не имеет ножниц - показываем обычные
-                return itemLevel == 0;
-            } else {
-                // Игрок имеет обычные ножницы - показываем обычные и улучшенные
-                return itemLevel == 0 || itemLevel == 1;
-            }
-        }
-        
-        // Для кирки и топора (4 уровня)
-        if (playerLevel == 0) {
-            // Игрок не имеет инструмента - показываем только деревянный
-            return itemLevel == 0;
-        } else {
-            // Игрок имеет инструмент - показываем текущий и следующий уровень
-            return itemLevel == playerLevel || itemLevel == playerLevel + 1;
-        }
     }
     
     /**
@@ -269,7 +219,38 @@ public class ToolUpgradeManager {
     }
     
     /**
-     * Аналог CategoryContent.execute() из BedWars1058
+     * Получить цену для текущего уровня
+     */
+    public int getCurrentPrice(ToolType type, int level) {
+        switch (type) {
+            case PICKAXE:
+                return level < pickaxePrices.size() ? pickaxePrices.get(level) : -1;
+            case AXE:
+                return level < axePrices.size() ? axePrices.get(level) : -1;
+            case SHEARS:
+                return level < shearsPrices.size() ? shearsPrices.get(level) : -1;
+            default:
+                return -1;
+        }
+    }
+    
+    /**
+     * Проверить, достигнут ли максимальный уровень
+     */
+    public boolean isMaxLevel(ToolType type, int level) {
+        switch (type) {
+            case PICKAXE:
+                return level >= PICKAXE_MATERIALS.length - 1;
+            case AXE:
+                return level >= AXE_MATERIALS.length - 1;
+            case SHEARS:
+                return level >= 1;
+            default:
+                return true;
+        }
+    }
+    
+    /**
      * Попытка улучшить инструмент
      */
     public boolean upgradeTool(Player player, ToolType type, ItemSpawnerType currencyType) {
@@ -291,16 +272,16 @@ public class ToolUpgradeManager {
                 return false;
         }
         
-        int maxLevel = (type == ToolType.SHEARS) ? 1 : 3;
-        if (currentLevel >= maxLevel) {
+        if (isMaxLevel(type, currentLevel)) {
             LanguageService.getInstance().get("shop.max_tool_level")
                 .replace("%tool%", type.name().toLowerCase())
                 .send(Players.wrapPlayer(player));
             return false;
         }
         
-        // Получаем цену
-        int price = getPrice(type, currentLevel);
+        // Получаем цену следующего уровня
+        int nextLevel = currentLevel + 1;
+        int price = getCurrentPrice(type, nextLevel);
         if (price <= 0) return false;
         
         // Проверяем ресурсы
@@ -330,89 +311,32 @@ public class ToolUpgradeManager {
         player.getInventory().removeItem(stack);
         
         // Увеличиваем уровень
-        int newLevel = currentLevel + 1;
         switch (type) {
             case PICKAXE:
-                levels.setPickaxeLevel(newLevel);
+                levels.setPickaxeLevel(nextLevel);
                 break;
             case AXE:
-                levels.setAxeLevel(newLevel);
+                levels.setAxeLevel(nextLevel);
                 break;
             case SHEARS:
-                levels.setShearsLevel(newLevel);
+                levels.setShearsLevel(nextLevel);
                 break;
         }
         
-        // Обновляем предмет в инвентаре (как в BedWars1058 upgrade() + giveItems())
-        updateToolInInventory(player, type, newLevel, levels);
+        // Обновляем предмет в инвентаре
+        updateToolInInventory(player, type, nextLevel, levels);
         
         // Сообщение
         LanguageService.getInstance().get("shop.tool_upgraded")
             .replace("%tool%", type.name().toLowerCase())
-            .replace("%level%", String.valueOf(newLevel + 1))
+            .replace("%level%", String.valueOf(nextLevel + 1))
             .send(Players.wrapPlayer(player));
         
         return true;
     }
     
     /**
-     * Получить цену для улучшения
-     */
-    private int getPrice(ToolType type, int currentLevel) {
-        switch (type) {
-            case PICKAXE:
-                return currentLevel < pickaxePrices.size() ? pickaxePrices.get(currentLevel) : -1;
-            case AXE:
-                return currentLevel < axePrices.size() ? axePrices.get(currentLevel) : -1;
-            case SHEARS:
-                return currentLevel < shearsPrices.size() ? shearsPrices.get(currentLevel) : -1;
-            default:
-                return -1;
-        }
-    }
-    
-    /**
-     * Обновить инструмент в инвентаре (giveItems из BedWars1058)
-     */
-    public void giveToolItem(Player player, ToolType type, int level) {
-        if (player == null) return;
-        
-        var levels = ToolLevels.getOrCreate(player.getUniqueId());
-        int slot = -1;
-        
-        switch (type) {
-            case PICKAXE:
-                slot = levels.getPickaxeSlot();
-                break;
-            case AXE:
-                slot = levels.getAxeSlot();
-                break;
-            case SHEARS:
-                slot = levels.getShearsSlot();
-                break;
-        }
-        
-        // Если слот не запомнен, ищем первый пустой слот
-        if (slot == -1) {
-            PlayerInventory inv = player.getInventory();
-            for (int i = 0; i < inv.getSize(); i++) {
-                if (inv.getItem(i) == null || inv.getItem(i).getType() == Material.AIR) {
-                    slot = i;
-                    break;
-                }
-            }
-        }
-        
-        if (slot != -1) {
-            ItemStack newTool = createToolItem(type, level);
-            if (newTool != null) {
-                player.getInventory().setItem(slot, newTool);
-            }
-        }
-    }
-    
-    /**
-     * Обновить инструмент в инвентаре (замена в том же слоте)
+     * Обновить инструмент в инвентаре
      */
     private void updateToolInInventory(Player player, ToolType type, int newLevel, ToolLevels levels) {
         if (player == null) return;
@@ -463,7 +387,6 @@ public class ToolUpgradeManager {
     }
     
     /**
-     * Аналог manageDeath из BedWars1058
      * Понизить уровень инструмента при смерти
      */
     public void downgradeTool(Player player, ToolType type) {
@@ -521,8 +444,8 @@ public class ToolUpgradeManager {
         }
         
         if (levels.getShearsLevel() > 0 && upgradeShears) {
-            levels.setShearsLevel(0);
-            updateToolInInventory(player, ToolType.SHEARS, 0, levels);
+            levels.setShearsLevel(levels.getShearsLevel() - 1);
+            updateToolInInventory(player, ToolType.SHEARS, levels.getShearsLevel(), levels);
         }
     }
     
