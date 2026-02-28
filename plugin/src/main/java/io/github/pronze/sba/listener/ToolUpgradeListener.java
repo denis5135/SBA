@@ -4,11 +4,11 @@ import io.github.pronze.sba.SBA;
 import io.github.pronze.sba.manager.ToolLevels;
 import io.github.pronze.sba.manager.ToolType;
 import io.github.pronze.sba.manager.ToolUpgradeManager;
+import io.github.pronze.sba.utils.Logger;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
 import org.screamingsandals.bedwars.Main;
@@ -21,11 +21,14 @@ public class ToolUpgradeListener implements Listener {
     
     @OnPostEnable
     public void registerListener() {
-        if (SBA.isBroken())
-            return;
+        if (SBA.isBroken()) return;
         SBA.getInstance().registerListener(this);
+        Logger.info("✅ ToolUpgradeListener registered!");
     }
     
+    /**
+     * Обработка смерти - понижение инструментов (как manageDeath в BedWars1058)
+     */
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
@@ -41,8 +44,12 @@ public class ToolUpgradeListener implements Listener {
         
         // Понижаем все инструменты при смерти
         ToolUpgradeManager.getInstance().downgradeAllTools(player);
+        Logger.info("💀 Tools downgraded for player: " + player.getName());
     }
     
+    /**
+     * При респавне выдаём инструменты текущего уровня
+     */
     @EventHandler
     public void onPlayerRespawn(PlayerRespawnEvent event) {
         Player player = event.getPlayer();
@@ -51,48 +58,19 @@ public class ToolUpgradeListener implements Listener {
             return;
         }
         
-        // При респавне проверяем, что все инструменты на своих уровнях
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
         
-        // Обновляем инструменты в инвентаре после респавна
-        for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && ToolUpgradeManager.getInstance().canUpgrade(item)) {
-                ToolType type = ToolUpgradeManager.getInstance().getToolType(item);
-                if (type != null) {
-                    int currentLevel = ToolUpgradeManager.getInstance().getCurrentLevel(item);
-                    int targetLevel = 0;
-                    
-                    switch (type) {
-                        case PICKAXE:
-                            targetLevel = levels.getPickaxeLevel();
-                            break;
-                        case AXE:
-                            targetLevel = levels.getAxeLevel();
-                            break;
-                        case SHEARS:
-                            targetLevel = levels.getShearsLevel();
-                            break;
-                    }
-                    
-                    if (targetLevel > currentLevel) {
-                        // Нужно улучшить предмет
-                        ItemStack newItem = ToolUpgradeManager.getInstance().createToolItem(type, targetLevel);
-                        if (newItem != null) {
-                            // Заменяем в том же слоте
-                            int slot = player.getInventory().first(item);
-                            if (slot != -1) {
-                                player.getInventory().setItem(slot, newItem);
-                            }
-                        }
-                    }
-                }
-            }
+        // Выдаём инструменты текущего уровня (giveItems из BedWars1058)
+        if (levels.getPickaxeLevel() > 0) {
+            ToolUpgradeManager.getInstance().giveToolItem(player, ToolType.PICKAXE, levels.getPickaxeLevel());
         }
-    }
-    
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        // Очищаем данные при выходе
-        ToolUpgradeManager.getInstance().removePlayerData(event.getPlayer().getUniqueId());
+        if (levels.getAxeLevel() > 0) {
+            ToolUpgradeManager.getInstance().giveToolItem(player, ToolType.AXE, levels.getAxeLevel());
+        }
+        if (levels.getShearsLevel() > 0) {
+            ToolUpgradeManager.getInstance().giveToolItem(player, ToolType.SHEARS, levels.getShearsLevel());
+        }
+        
+        Logger.info("🔄 Tools restored for player: " + player.getName());
     }
 }
