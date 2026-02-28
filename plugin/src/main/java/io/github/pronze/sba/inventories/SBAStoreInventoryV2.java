@@ -55,6 +55,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 @Service
 @ServiceDependencies(dependsOn = {
@@ -119,37 +120,6 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
         ItemStack originalItem = event.getStack().as(ItemStack.class);
         String itemName = event.getStack().getMaterial().platformName();
         
-        // ВСЕГДА показываем предметы, если это не апгрейд с next
-        String upgradedTo = PlayerItemTracker.getInstance().getNextUpgrade(player, itemName);
-        
-        if (upgradedTo != null) {
-            event.setStack(org.screamingsandals.lib.item.builder.ItemStackFactory.getAir());
-            return;
-        }
-        
-        // Применяем чары команды
-        event.setStack(ShopUtil.applyTeamUpgradeEnchantsToItem(event.getStack(), event, StoreType.UPGRADES));
-        
-        // Теперь проверяем инструменты (НО НЕ СКРЫВАЕМ ИХ!)
-        if (SBAConfig.getInstance().isToolUpgradeEnabled() && originalItem != null) {
-            try {
-                ToolType toolType = ToolUpgradeManager.getInstance().getToolType(originalItem);
-                if (toolType != null) {
-                    int itemLevel = ToolUpgradeManager.getInstance().getCurrentLevel(originalItem);
-                    int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
-                    
-                    Logger.info("🔧 Tool in shop: " + toolType + " Level " + itemLevel + 
-                               " (Player has level " + playerLevel + ")");
-                    
-                    // TODO: здесь потом добавим изменение цены или лора
-                    // НО НЕ СКРЫВАЕМ ПРЕДМЕТЫ!
-                }
-            } catch (Exception e) {
-                Logger.trace("Error checking tool: " + e.getMessage());
-            }
-        }
-    }
-        
         // Оригинальная логика SBA
         String upgradedTo = PlayerItemTracker.getInstance().getNextUpgrade(player, itemName);
         
@@ -159,6 +129,22 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
         }
         
         event.setStack(ShopUtil.applyTeamUpgradeEnchantsToItem(event.getStack(), event, StoreType.UPGRADES));
+        
+        // Просто логируем инструменты, но не скрываем их
+        if (SBAConfig.getInstance().isToolUpgradeEnabled() && originalItem != null) {
+            try {
+                ToolType toolType = ToolUpgradeManager.getInstance().getToolType(originalItem);
+                if (toolType != null) {
+                    int itemLevel = ToolUpgradeManager.getInstance().getCurrentLevel(originalItem);
+                    int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
+                    
+                    Logger.info("🔧 Tool in shop: " + toolType + " Level " + itemLevel + 
+                               " (Player has level " + playerLevel + ")");
+                }
+            } catch (Exception e) {
+                Logger.trace("Error checking tool: " + e.getMessage());
+            }
+        }
     }
 
     @Override
