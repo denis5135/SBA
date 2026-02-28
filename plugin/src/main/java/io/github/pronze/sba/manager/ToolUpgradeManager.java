@@ -251,6 +251,91 @@ public class ToolUpgradeManager {
     }
     
     /**
+     * Выдать инструмент игроку (ищет слот или выдаёт в первый свободный)
+     */
+    public void giveToolItem(Player player, ToolType type, int level) {
+        if (player == null) return;
+        
+        ItemStack tool = createToolItem(type, level);
+        if (tool == null) return;
+        
+        // Пытаемся найти слот, где уже есть такой тип инструмента
+        PlayerInventory inv = player.getInventory();
+        int targetSlot = -1;
+        
+        for (int i = 0; i < inv.getSize(); i++) {
+            ItemStack item = inv.getItem(i);
+            if (item != null && getToolType(item) == type) {
+                targetSlot = i;
+                break;
+            }
+        }
+        
+        // Если не нашли, ищем первый пустой слот
+        if (targetSlot == -1) {
+            targetSlot = inv.firstEmpty();
+        }
+        
+        if (targetSlot != -1) {
+            inv.setItem(targetSlot, tool);
+        } else {
+            // Если нет свободных слотов, выбрасываем на землю
+            player.getWorld().dropItemNaturally(player.getLocation(), tool);
+        }
+    }
+    
+    /**
+     * Обновить инструмент в инвентаре (замена в том же слоте)
+     */
+    private void updateToolInInventory(Player player, ToolType type, int newLevel, ToolLevels levels) {
+        if (player == null) return;
+        
+        PlayerInventory inv = player.getInventory();
+        int slot = -1;
+        
+        switch (type) {
+            case PICKAXE:
+                slot = levels.getPickaxeSlot();
+                break;
+            case AXE:
+                slot = levels.getAxeSlot();
+                break;
+            case SHEARS:
+                slot = levels.getShearsSlot();
+                break;
+        }
+        
+        // Если слот не запомнен, ищем инструмент
+        if (slot == -1) {
+            for (int i = 0; i < inv.getSize(); i++) {
+                ItemStack item = inv.getItem(i);
+                if (item != null && getToolType(item) == type) {
+                    slot = i;
+                    switch (type) {
+                        case PICKAXE:
+                            levels.setPickaxeSlot(i);
+                            break;
+                        case AXE:
+                            levels.setAxeSlot(i);
+                            break;
+                        case SHEARS:
+                            levels.setShearsSlot(i);
+                            break;
+                    }
+                    break;
+                }
+            }
+        }
+        
+        if (slot != -1) {
+            ItemStack newTool = createToolItem(type, newLevel);
+            if (newTool != null) {
+                inv.setItem(slot, newTool);
+            }
+        }
+    }
+    
+    /**
      * Попытка улучшить инструмент
      */
     public boolean upgradeTool(Player player, ToolType type, ItemSpawnerType currencyType) {
@@ -336,53 +421,18 @@ public class ToolUpgradeManager {
     }
     
     /**
-     * Обновить инструмент в инвентаре
+     * Получить цену для улучшения
      */
-    private void updateToolInInventory(Player player, ToolType type, int newLevel, ToolLevels levels) {
-        if (player == null) return;
-        
-        PlayerInventory inv = player.getInventory();
-        int slot = -1;
-        
+    private int getPrice(ToolType type, int currentLevel) {
         switch (type) {
             case PICKAXE:
-                slot = levels.getPickaxeSlot();
-                break;
+                return currentLevel < pickaxePrices.size() ? pickaxePrices.get(currentLevel) : -1;
             case AXE:
-                slot = levels.getAxeSlot();
-                break;
+                return currentLevel < axePrices.size() ? axePrices.get(currentLevel) : -1;
             case SHEARS:
-                slot = levels.getShearsSlot();
-                break;
-        }
-        
-        // Если слот не запомнен, ищем инструмент
-        if (slot == -1) {
-            for (int i = 0; i < inv.getSize(); i++) {
-                ItemStack item = inv.getItem(i);
-                if (item != null && getToolType(item) == type) {
-                    slot = i;
-                    switch (type) {
-                        case PICKAXE:
-                            levels.setPickaxeSlot(i);
-                            break;
-                        case AXE:
-                            levels.setAxeSlot(i);
-                            break;
-                        case SHEARS:
-                            levels.setShearsSlot(i);
-                            break;
-                    }
-                    break;
-                }
-            }
-        }
-        
-        if (slot != -1) {
-            ItemStack newTool = createToolItem(type, newLevel);
-            if (newTool != null) {
-                inv.setItem(slot, newTool);
-            }
+                return currentLevel < shearsPrices.size() ? shearsPrices.get(currentLevel) : -1;
+            default:
+                return -1;
         }
     }
     
