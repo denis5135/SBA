@@ -85,6 +85,16 @@ public class ShopListener implements Listener {
         String title = player.getOpenInventory().getTitle();
         Logger.info("🔍 Filtering inventory: '" + title + "' (reason: " + reason + ")");
         
+        // Сначала выведем все предметы для отладки
+        Logger.info("=== ВСЕ ПРЕДМЕТЫ В ИНВЕНТАРЕ ===");
+        for (int i = 0; i < openInv.getSize(); i++) {
+            ItemStack item = openInv.getItem(i);
+            if (item != null && item.getType() != Material.AIR) {
+                Logger.info("  Slot " + i + ": " + item.getType().name());
+            }
+        }
+        Logger.info("================================");
+        
         // Считаем инструменты
         int toolCount = 0;
         for (ItemStack item : openInv.getContents()) {
