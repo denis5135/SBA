@@ -145,7 +145,6 @@ public class ShopListener implements Listener {
                     Logger.info("  ❌ Hidden " + item.getType().name() + " (level " + itemLevel + ")");
                 } else {
                     visibleCount++;
-                    Logger.info("  ✅ Visible " + item.getType().name() + " (level " + itemLevel + ")");
                 }
             }
         }
