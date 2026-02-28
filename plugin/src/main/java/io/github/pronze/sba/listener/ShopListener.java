@@ -11,6 +11,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -35,23 +36,23 @@ public class ShopListener implements Listener {
         
         Player player = (Player) event.getPlayer();
         String title = event.getView().getTitle();
+        InventoryType type = event.getInventory().getType();
         
-        // Логируем всё, что открывается
-        Logger.info("📂 Inventory opened: '" + title + "' by " + player.getName());
+        Logger.info("📂 Inventory opened: '" + title + "' type: " + type + " by " + player.getName());
         
         // Фильтруем ЛЮБОЙ инвентарь, который может быть магазином
         if (title.contains("Shop") || title.contains("Магазин") || 
             title.contains("Tools") || title.contains("Инструменты") ||
             title.contains("Upgrade") || title.contains("Улучшения") ||
-            title.equals("Crafting")) {  // Добавил Crafting на всякий случай
+            type == InventoryType.CHEST || type == InventoryType.WORKBENCH) {
             
             if (!SBAConfig.getInstance().isToolUpgradeEnabled()) return;
             
-            scheduleInventoryFilter(player, "inventory open: " + title);
+            scheduleInventoryFilter(player, "inventory open: " + title + " (" + type + ")");
         }
     }
     
-        @EventHandler
+    @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
         
@@ -70,11 +71,6 @@ public class ShopListener implements Listener {
             if (clicked.hasItemMeta() && clicked.getItemMeta().hasDisplayName()) {
                 Logger.info("   Item name: " + clicked.getItemMeta().getDisplayName());
             }
-        }
-        
-        // Если кликнули по предмету
-        if (event.getCurrentItem() != null && event.getCurrentItem().getType() != Material.AIR) {
-            ItemStack clicked = event.getCurrentItem();
             
             // Проверяем все возможные иконки категорий
             if (clicked.getType().name().contains("PICKAXE") ||
@@ -90,34 +86,14 @@ public class ShopListener implements Listener {
                     @Override
                     public void run() {
                         String newTitle = player.getOpenInventory().getTitle();
-                        Logger.info("New inventory after click: '" + newTitle + "'");
+                        InventoryType newType = player.getOpenInventory().getType();
+                        Logger.info("New inventory after click: '" + newTitle + "' type: " + newType);
                         
-                        if (!newTitle.equals(title)) {
-                            scheduleInventoryFilter(player, "category click - new title: " + newTitle);
-                        } else {
-                            Logger.info("Title didn't change, category might not have opened");
-                        }
+                        scheduleInventoryFilter(player, "category click - new title: " + newTitle);
                     }
                 }.runTaskLater(SBA.getPluginInstance(), 20L);
             }
         }
-    }
-    
-    private boolean isCategoryIcon(ItemStack item) {
-        if (item == null) return false;
-        
-        Material type = item.getType();
-        // Иконки категорий - это основные предметы
-        return type.name().contains("PICKAXE") ||
-               type.name().contains("SWORD") ||
-               type.name().contains("BOW") ||
-               type.name().contains("BOOTS") ||
-               type.name().contains("CHESTPLATE") ||
-               type.name().contains("HELMET") ||
-               type.name().contains("TNT") ||
-               type.name().contains("POTION") ||
-               type == Material.SHEARS ||
-               type == Material.BREWING_STAND;
     }
     
     private void scheduleInventoryFilter(Player player, String reason) {
@@ -141,9 +117,10 @@ public class ShopListener implements Listener {
         }
         
         String title = player.getOpenInventory().getTitle();
-        Logger.info("🔍 Filtering inventory: '" + title + "' (reason: " + reason + ")");
+        InventoryType type = player.getOpenInventory().getType();
+        Logger.info("🔍 Filtering inventory: '" + title + "' type: " + type + " (reason: " + reason + ")");
         
-        boolean isToolsCategory = title.contains("Tools") || title.contains("Инструменты") || title.equals("Crafting");
+        boolean isToolsCategory = title.contains("Tools") || title.contains("Инструменты") || type == InventoryType.WORKBENCH;
         boolean isMainMenu = title.contains("Shop") || title.contains("Магазин") || title.contains("Item Shop");
         
         Logger.info("isMainMenu: " + isMainMenu + ", isToolsCategory: " + isToolsCategory);
@@ -186,6 +163,8 @@ public class ShopListener implements Listener {
                             shouldShow = (itemLevel == 0 || itemLevel == 1);
                         }
                     }
+                    
+                    Logger.info("   Tool: " + toolType + " level " + itemLevel + " shouldShow: " + shouldShow);
                 } else {
                     shouldShow = true;
                 }
