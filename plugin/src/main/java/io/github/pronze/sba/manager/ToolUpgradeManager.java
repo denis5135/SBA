@@ -16,13 +16,10 @@ import org.screamingsandals.bedwars.Main;
 import org.screamingsandals.bedwars.api.game.Game;
 import org.screamingsandals.bedwars.api.game.ItemSpawnerType;
 import org.screamingsandals.lib.player.Players;
-import org.screamingsandals.lib.utils.annotations.Service;
-import org.screamingsandals.lib.utils.annotations.methods.OnPostEnable;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Service
 public class ToolUpgradeManager {
     private static ToolUpgradeManager instance;
     
@@ -55,26 +52,42 @@ public class ToolUpgradeManager {
     @Getter
     private final List<Integer> shearsPrices = Arrays.asList(20);
     
-    @OnPostEnable
-    public void init() {
-        instance = this;
-        loadConfig();
-        Logger.info("ToolUpgradeManager initialized!");
-    }
+    private boolean initialized = false;
     
     public static ToolUpgradeManager getInstance() {
+        if (instance == null) {
+            instance = new ToolUpgradeManager();
+            instance.init();
+        }
         return instance;
     }
     
+    private void init() {
+        if (initialized) return;
+        
+        loadConfig();
+        Logger.info("ToolUpgradeManager initialized!");
+        initialized = true;
+    }
+    
     private void loadConfig() {
-        var config = SBAConfig.getInstance();
-        upgradeShears = config.node("upgrade-item", "shears").getBoolean(true);
+        try {
+            var config = SBAConfig.getInstance();
+            if (config != null) {
+                upgradeShears = config.node("upgrade-item", "shears").getBoolean(true);
+                upgradePickaxe = true;
+                upgradeAxe = true;
+            }
+        } catch (Exception e) {
+            Logger.error("Failed to load tool config: " + e.getMessage());
+        }
     }
     
     /**
      * Получить уровень инструмента игрока
      */
     public int getToolLevel(Player player, ToolType type) {
+        if (player == null) return 0;
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
         switch (type) {
             case PICKAXE:
@@ -85,6 +98,25 @@ public class ToolUpgradeManager {
                 return levels.getShearsLevel();
             default:
                 return 0;
+        }
+    }
+    
+    /**
+     * Установить уровень инструмента игрока
+     */
+    public void setToolLevel(Player player, ToolType type, int level) {
+        if (player == null) return;
+        var levels = ToolLevels.getOrCreate(player.getUniqueId());
+        switch (type) {
+            case PICKAXE:
+                levels.setPickaxeLevel(level);
+                break;
+            case AXE:
+                levels.setAxeLevel(level);
+                break;
+            case SHEARS:
+                levels.setShearsLevel(level);
+                break;
         }
     }
     
@@ -145,6 +177,49 @@ public class ToolUpgradeManager {
     }
     
     /**
+     * Получить уровень игрока для данного предмета
+     */
+    public int getPlayerLevelForItem(Player player, ItemStack item) {
+        if (player == null || item == null) return -1;
+        ToolType type = getToolType(item);
+        if (type == null) return -1;
+        return getToolLevel(player, type);
+    }
+    
+    /**
+     * Проверить, должен ли предмет быть виден в магазине
+     */
+    public boolean shouldShowInShop(Player player, ItemStack item) {
+        if (player == null || item == null) return false;
+        
+        ToolType type = getToolType(item);
+        if (type == null) return true; // Не инструмент - показываем всегда
+        
+        int itemLevel = getCurrentLevel(item);
+        int playerLevel = getToolLevel(player, type);
+        
+        // Для ножниц особый случай (только 2 уровня)
+        if (type == ToolType.SHEARS) {
+            if (playerLevel == 0) {
+                // Игрок не имеет ножниц - показываем обычные
+                return itemLevel == 0;
+            } else {
+                // Игрок имеет обычные ножницы - показываем обычные и улучшенные
+                return itemLevel == 0 || itemLevel == 1;
+            }
+        }
+        
+        // Для кирки и топора (4 уровня)
+        if (playerLevel == 0) {
+            // Игрок не имеет инструмента - показываем только деревянный
+            return itemLevel == 0;
+        } else {
+            // Игрок имеет инструмент - показываем текущий и следующий уровень
+            return itemLevel == playerLevel || itemLevel == playerLevel + 1;
+        }
+    }
+    
+    /**
      * Создать предмет для указанного уровня
      */
     public ItemStack createToolItem(ToolType type, int level) {
@@ -182,6 +257,8 @@ public class ToolUpgradeManager {
      * Попытка улучшить инструмент
      */
     public boolean upgradeTool(Player player, ToolType type, ItemSpawnerType currencyType) {
+        if (player == null) return false;
+        
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
         int currentLevel;
         switch (type) {
@@ -212,6 +289,8 @@ public class ToolUpgradeManager {
         
         // Проверяем ресурсы
         var game = Main.getInstance().getGameOfPlayer(player);
+        if (game == null) return false;
+        
         var stack = currencyType.getStack(price);
         
         if (!player.getInventory().containsAtLeast(stack, price)) {
@@ -280,6 +359,8 @@ public class ToolUpgradeManager {
      * Обновить инструмент в инвентаре
      */
     private void updateToolInInventory(Player player, ToolType type, int newLevel, ToolLevels levels) {
+        if (player == null) return;
+        
         PlayerInventory inv = player.getInventory();
         int slot = -1;
         
@@ -329,6 +410,8 @@ public class ToolUpgradeManager {
      * Понизить уровень инструмента при смерти
      */
     public void downgradeTool(Player player, ToolType type) {
+        if (player == null) return;
+        
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
         int currentLevel;
         switch (type) {
@@ -366,6 +449,8 @@ public class ToolUpgradeManager {
      * Понизить все инструменты при смерти
      */
     public void downgradeAllTools(Player player) {
+        if (player == null) return;
+        
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
         
         if (levels.getPickaxeLevel() > 0 && upgradePickaxe) {
