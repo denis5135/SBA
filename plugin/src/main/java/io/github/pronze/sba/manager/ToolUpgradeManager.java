@@ -46,11 +46,11 @@ public class ToolUpgradeManager {
     
     // Цены для каждого уровня
     @Getter
-    private final List<Integer> pickaxePrices = Arrays.asList(10, 20, 30, 40);
+    private final List<Integer> pickaxePrices = Arrays.asList(10, 10, 3, 6); // дерево, камень, железо, алмаз
     @Getter
-    private final List<Integer> axePrices = Arrays.asList(10, 20, 30, 40);
+    private final List<Integer> axePrices = Arrays.asList(10, 10, 3, 6);     // дерево, камень, железо, алмаз
     @Getter
-    private final List<Integer> shearsPrices = Arrays.asList(16, 20);
+    private final List<Integer> shearsPrices = Arrays.asList(16, 32);        // обычные, улучшенные
     
     private boolean initialized = false;
     
