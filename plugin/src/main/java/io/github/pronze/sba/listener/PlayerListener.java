@@ -1,8 +1,6 @@
 package io.github.pronze.sba.listener;
 
 import io.github.pronze.sba.MessageKeys;
-import io.github.pronze.sba.manager.ToolUpgradeManager;
-import io.github.pronze.sba.manager.ToolType;
 import io.github.pronze.sba.Permissions;
 import io.github.pronze.sba.SBA;
 import io.github.pronze.sba.UpdateChecker;
@@ -10,6 +8,8 @@ import io.github.pronze.sba.config.SBAConfig;
 import io.github.pronze.sba.data.DegradableItem;
 import io.github.pronze.sba.game.ArenaManager;
 import io.github.pronze.sba.lib.lang.LanguageService;
+import io.github.pronze.sba.manager.ToolType;
+import io.github.pronze.sba.manager.ToolUpgradeManager;
 import io.github.pronze.sba.utils.Logger;
 import io.github.pronze.sba.utils.SBAUtil;
 import io.github.pronze.sba.utils.ShopUtil;
@@ -110,6 +110,8 @@ public class PlayerListener implements Listener {
                     Arrays.stream(player.getInventory().getArmorContents())
             );
         }
+        
+        // Сохраняем инвентарь и обрабатываем понижение инструментов
         stream.filter(Objects::nonNull)
                 .forEach(stack -> {
                     final String name = stack.getType().name();
@@ -120,7 +122,17 @@ public class PlayerListener implements Listener {
                             break;
                         case "PICKAXE":
                         case "AXE":
-                            itemArr.add(ShopUtil.downgradeItem(stack, DegradableItem.TOOLS));
+                        case "SHEARS":
+                            // Проверяем, можно ли улучшать этот инструмент
+                            if (ToolUpgradeManager.getInstance().canUpgrade(stack)) {
+                                // Если можно - понижаем уровень в данных
+                                ToolType type = ToolUpgradeManager.getInstance().getToolType(stack);
+                                if (type != null) {
+                                    ToolUpgradeManager.getInstance().downgradeTool(player, type);
+                                }
+                            }
+                            // Сохраняем предмет как есть (он уже понижен или нет)
+                            itemArr.add(stack);
                             break;
                         case "LEGGINGS":
                         case "BOOTS":
@@ -128,7 +140,7 @@ public class PlayerListener implements Listener {
                         case "HELMET":
                             itemArr.add(ShopUtil.downgradeItem(stack, DegradableItem.ARMOR));
                             break;
-                        case "SHEARS":
+                        default:
                             itemArr.add(stack);
                             break;
                     }
@@ -259,7 +271,7 @@ public class PlayerListener implements Listener {
                 && SBAConfig.getInstance().getBoolean("block-players-putting-certain-items-onto-chest", true)
                 && (topSlot.getType() == InventoryType.CHEST || topSlot.getType() == InventoryType.ENDER_CHEST)
                 && bottomSlot.getType() == InventoryType.PLAYER) {
-            if (typeName.endsWith("AXE") || typeName.endsWith("SWORD")) {
+            if (typeName.endsWith("AXE") || typeName.endsWith("SWORD") || typeName.endsWith("PICKAXE")) {
                 event.setResult(Event.Result.DENY);
                 LanguageService
                         .getInstance()
