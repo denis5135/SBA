@@ -24,43 +24,68 @@ public class ShopListener implements Listener {
     public void registerListener() {
         if (SBA.isBroken()) return;
         SBA.getInstance().registerListener(this);
+        Logger.info("✅ ShopListener registered!");
     }
     
     @EventHandler
     public void onShopOpen(BedwarsOpenShopEvent event) {
         Player player = event.getPlayer();
         
+        Logger.info("🛒 Shop opened by: " + player.getName());
+        
         // Проверяем, включены ли улучшения инструментов
-        if (!SBAConfig.getInstance().isToolUpgradeEnabled()) return;
+        if (!SBAConfig.getInstance().isToolUpgradeEnabled()) {
+            Logger.info("Tool upgrades are disabled");
+            return;
+        }
         
         // Откладываем фильтрацию с помощью BukkitRunnable
         new BukkitRunnable() {
             @Override
             public void run() {
                 try {
+                    Logger.info("Starting shop filter for: " + player.getName());
                     filterShopInventory(player);
                 } catch (Exception e) {
                     Logger.error("Error filtering shop inventory: " + e.getMessage());
+                    e.printStackTrace();
                 }
             }
-        }.runTaskLater(SBA.getPluginInstance(), 5L); // 5 тиков задержки
+        }.runTaskLater(SBA.getPluginInstance(), 10L); // 10 тиков задержки для гарантии
     }
     
     private void filterShopInventory(Player player) {
         Inventory openInv = player.getOpenInventory().getTopInventory();
-        if (openInv == null) return;
+        if (openInv == null) {
+            Logger.info("Open inventory is null");
+            return;
+        }
+        
+        Logger.info("Inventory size: " + openInv.getSize());
         
         // Получаем название инвентаря, чтобы понять, где мы находимся
         String title = player.getOpenInventory().getTitle();
+        Logger.info("Inventory title: " + title);
+        
         boolean isMainMenu = title.contains("Shop") || title.contains("Магазин") || title.contains("Item Shop");
         boolean isToolsCategory = title.contains("Tools") || title.contains("Инструменты");
+        
+        Logger.info("isMainMenu: " + isMainMenu + ", isToolsCategory: " + isToolsCategory);
+        
+        int hiddenCount = 0;
+        int visibleCount = 0;
         
         for (int i = 0; i < openInv.getSize(); i++) {
             ItemStack item = openInv.getItem(i);
             if (item == null || item.getType() == Material.AIR) continue;
             
+            Logger.info("Slot " + i + ": " + item.getType().name());
+            
             // Пропускаем иконки навигации и декоративные стекла
-            if (isPlaceholderOrNavigation(item)) continue;
+            if (isPlaceholderOrNavigation(item)) {
+                Logger.info("  -> Navigation item, keeping");
+                continue;
+            }
             
             // Проверяем, является ли предмет инструментом
             ToolType toolType = ToolUpgradeManager.getInstance().getToolType(item);
@@ -68,12 +93,15 @@ public class ShopListener implements Listener {
                 int itemLevel = ToolUpgradeManager.getInstance().getCurrentLevel(item);
                 int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
                 
+                Logger.info("  🔧 Tool: " + toolType + " | " + item.getType().name() + 
+                           " | ItemLevel: " + itemLevel + " | PlayerLevel: " + playerLevel);
+                
                 boolean shouldShow = false;
                 
-                // Если это главное меню, показываем только иконку категории (каменная кирка)
+                // Если это главное меню, показываем все иконки категорий
                 if (isMainMenu) {
-                    // В главном меню показываем все иконки категорий
                     shouldShow = true;
+                    Logger.info("  -> Main menu, keeping category icon");
                 }
                 // Если это категория инструментов, фильтруем
                 else if (isToolsCategory) {
@@ -94,20 +122,33 @@ public class ShopListener implements Listener {
                             shouldShow = (itemLevel == 0 || itemLevel == 1);
                         }
                     }
+                    
+                    Logger.info("  -> Tools category: shouldShow=" + shouldShow);
                 } else {
                     // В других категориях показываем всё
                     shouldShow = true;
+                    Logger.info("  -> Other category, keeping");
                 }
                 
                 if (!shouldShow) {
                     // Скрываем предмет, заменяя на стекло
                     openInv.setItem(i, createPlaceholderItem());
-                    Logger.info("Hiding tool: " + item.getType() + " for player " + player.getName());
+                    hiddenCount++;
+                    Logger.info("  ❌ HIDDEN");
                 } else {
-                    Logger.info("Showing tool: " + item.getType() + " for player " + player.getName());
+                    visibleCount++;
+                }
+            } else {
+                // Не инструмент
+                if (item.getType().name().contains("PICKAXE") || 
+                    item.getType().name().contains("AXE") || 
+                    item.getType().name().contains("SHEARS")) {
+                    Logger.warn("  ⚠️ Item looks like tool but not recognized: " + item.getType().name());
                 }
             }
         }
+        
+        Logger.info("Filter complete: " + visibleCount + " visible, " + hiddenCount + " hidden");
     }
     
     private boolean isPlaceholderOrNavigation(ItemStack item) {
