@@ -1,6 +1,8 @@
 package io.github.pronze.sba.listener;
 
 import io.github.pronze.sba.MessageKeys;
+import io.github.pronze.sba.manager.ToolUpgradeManager;
+import io.github.pronze.sba.manager.ToolType;
 import io.github.pronze.sba.Permissions;
 import io.github.pronze.sba.SBA;
 import io.github.pronze.sba.UpdateChecker;
