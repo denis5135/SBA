@@ -1,4 +1,3 @@
-
 package io.github.pronze.sba.listener;
 
 import io.github.pronze.sba.SBA;
@@ -56,16 +55,24 @@ public class ToolUpgradeListener implements Listener {
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
         
         // Обновляем инструменты в инвентаре после респавна
-        player.getInventory().forEach(item -> {
+        for (ItemStack item : player.getInventory().getContents()) {
             if (item != null && ToolUpgradeManager.getInstance().canUpgrade(item)) {
                 ToolType type = ToolUpgradeManager.getInstance().getToolType(item);
                 if (type != null) {
                     int currentLevel = ToolUpgradeManager.getInstance().getCurrentLevel(item);
-                    int targetLevel = switch (type) {
-                        case PICKAXE -> levels.getPickaxeLevel();
-                        case AXE -> levels.getAxeLevel();
-                        case SHEARS -> levels.getShearsLevel();
-                    };
+                    int targetLevel = 0;
+                    
+                    switch (type) {
+                        case PICKAXE:
+                            targetLevel = levels.getPickaxeLevel();
+                            break;
+                        case AXE:
+                            targetLevel = levels.getAxeLevel();
+                            break;
+                        case SHEARS:
+                            targetLevel = levels.getShearsLevel();
+                            break;
+                    }
                     
                     if (targetLevel > currentLevel) {
                         // Нужно улучшить предмет
@@ -80,7 +87,7 @@ public class ToolUpgradeListener implements Listener {
                     }
                 }
             }
-        });
+        }
     }
     
     @EventHandler
