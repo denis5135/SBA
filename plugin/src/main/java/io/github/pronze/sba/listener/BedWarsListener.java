@@ -749,5 +749,75 @@ public class BedWarsListener implements Listener {
                     }
                 });
     }
-
+    @EventHandler
+    public void onBedWarsOpenShop(BedwarsOpenShopEvent event) {
+        Player player = event.getPlayer();
+        
+        // Проверяем, включены ли улучшения инструментов
+        if (!SBAConfig.getInstance().isToolUpgradeEnabled()) return;
+        
+        // Откладываем фильтрацию инвентаря, чтобы он успел создаться
+        Tasker.runDelayed(DefaultThreads.GLOBAL_THREAD, () -> {
+            try {
+                filterShopInventory(player);
+            } catch (Exception e) {
+                Logger.error("Error filtering shop inventory: " + e.getMessage());
+            }
+        }, 5, TaskerTime.TICKS);
+    }
+    
+    private void filterShopInventory(Player player) {
+        Inventory openInv = player.getOpenInventory().getTopInventory();
+        if (openInv == null) return;
+        
+        for (int i = 0; i < openInv.getSize(); i++) {
+            ItemStack item = openInv.getItem(i);
+            if (item == null || item.getType() == org.bukkit.Material.AIR) continue;
+            
+            // Проверяем, является ли предмет инструментом
+            ToolType toolType = ToolUpgradeManager.getInstance().getToolType(item);
+            if (toolType != null) {
+                int itemLevel = ToolUpgradeManager.getInstance().getCurrentLevel(item);
+                int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
+                
+                boolean shouldShow = false;
+                
+                // Логика отображения
+                if (playerLevel == 0) {
+                    // Игрок не имеет инструмента - показываем только деревянный (уровень 0)
+                    shouldShow = (itemLevel == 0);
+                } else {
+                    // Игрок имеет инструмент - показываем текущий и следующий уровень
+                    shouldShow = (itemLevel == playerLevel || itemLevel == playerLevel + 1);
+                }
+                
+                // Особый случай для ножниц (только 2 уровня)
+                if (toolType == ToolType.SHEARS) {
+                    if (playerLevel == 0) {
+                        shouldShow = (itemLevel == 0);
+                    } else {
+                        shouldShow = (itemLevel == 0 || itemLevel == 1);
+                    }
+                }
+                
+                if (!shouldShow) {
+                    // Скрываем предмет, заменяя на стекло
+                    openInv.setItem(i, createPlaceholderItem());
+                    Logger.info("Hiding tool: " + item.getType() + " for player " + player.getName());
+                } else {
+                    Logger.info("Showing tool: " + item.getType() + " for player " + player.getName());
+                }
+            }
+        }
+    }
+    
+    private ItemStack createPlaceholderItem() {
+        ItemStack placeholder = new ItemStack(org.bukkit.Material.GRAY_STAINED_GLASS_PANE);
+        ItemMeta meta = placeholder.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(" ");
+            placeholder.setItemMeta(meta);
+        }
+        return placeholder;
+    }
 }
