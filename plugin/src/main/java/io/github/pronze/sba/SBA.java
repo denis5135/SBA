@@ -124,6 +124,7 @@ import static io.github.pronze.sba.utils.MessageUtils.showErrorMessage;
         SidebarManager.class,
         AntiCheatIntegration.class,
         QuickBuyConfig.class,
+        ToolCacheListener.class,
         ToolUpgradeListener.class,
         ShopListener.class
 })
