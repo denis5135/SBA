@@ -9,6 +9,8 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -39,7 +41,50 @@ public class ShopListener implements Listener {
             return;
         }
         
-        // Откладываем фильтрацию с помощью BukkitRunnable
+        // Откладываем фильтрацию для главного меню
+        scheduleInventoryFilter(player);
+    }
+    
+    @EventHandler
+    public void onInventoryOpen(InventoryOpenEvent event) {
+        if (!(event.getPlayer() instanceof Player)) return;
+        
+        Player player = (Player) event.getPlayer();
+        Inventory inv = event.getInventory();
+        
+        // Проверяем, открыт ли магазин (по названию)
+        String title = event.getView().getTitle();
+        if (title.contains("Shop") || title.contains("Магазин") || 
+            title.contains("Tools") || title.contains("Инструменты")) {
+            
+            Logger.info("📂 Inventory opened: " + title + " by " + player.getName());
+            
+            // Откладываем фильтрацию для любого инвентаря магазина
+            scheduleInventoryFilter(player);
+        }
+    }
+    
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        
+        Player player = (Player) event.getWhoClicked();
+        
+        // Если кликнули по категории, фильтруем новый инвентарь после открытия
+        if (event.getCurrentItem() != null && isCategoryIcon(event.getCurrentItem())) {
+            Logger.info("🖱️ Category clicked by: " + player.getName());
+            
+            // Откладываем фильтрацию для нового инвентаря
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    filterShopInventory(player);
+                }
+            }.runTaskLater(SBA.getPluginInstance(), 5L);
+        }
+    }
+    
+    private void scheduleInventoryFilter(Player player) {
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -51,7 +96,26 @@ public class ShopListener implements Listener {
                     e.printStackTrace();
                 }
             }
-        }.runTaskLater(SBA.getPluginInstance(), 10L); // 10 тиков задержки для гарантии
+        }.runTaskLater(SBA.getPluginInstance(), 10L);
+    }
+    
+    private boolean isCategoryIcon(ItemStack item) {
+        if (item == null) return false;
+        
+        // Иконки категорий - это обычно основные предметы (кирка, меч, лук и т.д.)
+        Material type = item.getType();
+        String name = type.name();
+        
+        return name.contains("PICKAXE") || 
+               name.contains("SWORD") || 
+               name.contains("BOW") || 
+               name.contains("BOOTS") || 
+               name.contains("CHESTPLATE") ||
+               name.contains("HELMET") ||
+               name.contains("TNT") ||
+               name.contains("POTION") ||
+               name.contains("BREWING") ||
+               type == Material.SHEARS;
     }
     
     private void filterShopInventory(Player player) {
@@ -161,10 +225,7 @@ public class ShopListener implements Listener {
         }
         
         // Проверяем, является ли предмет навигационным (стекла, стрелки назад и т.д.)
-        return type == Material.GREEN_STAINED_GLASS_PANE ||
-               type == Material.RED_STAINED_GLASS_PANE ||
-               type == Material.GRAY_STAINED_GLASS_PANE ||
-               type == Material.BLACK_STAINED_GLASS_PANE ||
+        return type.name().contains("STAINED_GLASS_PANE") ||
                type == Material.ARROW ||
                type == Material.BARRIER ||
                name.toLowerCase().contains("назад") || 
