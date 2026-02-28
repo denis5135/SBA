@@ -46,11 +46,12 @@ public class ShopListener implements Listener {
         Player player = (Player) event.getPlayer();
         String title = event.getView().getTitle();
         
+        Logger.info("📂 Inventory opened: '" + title + "' by " + player.getName());
+        
         // Проверяем, открыт ли магазин (любая страница)
         if (title.contains("Shop") || title.contains("Магазин") || 
-            title.contains("Tools") || title.contains("Инструменты")) {
-            
-            Logger.info("📂 Inventory opened: " + title + " by " + player.getName());
+            title.contains("Tools") || title.contains("Инструменты") ||
+            title.contains("Upgrade") || title.contains("Улучшения")) {
             
             if (!SBAConfig.getInstance().isToolUpgradeEnabled()) return;
             
@@ -63,37 +64,31 @@ public class ShopListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player)) return;
         
         Player player = (Player) event.getWhoClicked();
+        String title = event.getView().getTitle();
+        
+        Logger.info("🖱️ Click in inventory: '" + title + "' by " + player.getName());
         
         // Если кликнули по предмету
         if (event.getCurrentItem() != null && event.getCurrentItem().getType() != Material.AIR) {
             ItemStack clicked = event.getCurrentItem();
+            Logger.info("Clicked item: " + clicked.getType().name());
             
             // Проверяем, является ли кликнутый предмет иконкой категории инструментов
-            if (isToolCategoryIcon(clicked)) {
-                Logger.info("🖱️ Tools category clicked by: " + player.getName());
+            if (clicked.getType().name().contains("STONE_PICKAXE")) {
+                Logger.info("🔧 TOOLS CATEGORY CLICKED!");
                 
                 // Даём время на открытие новой категории
                 new BukkitRunnable() {
                     @Override
                     public void run() {
-                        scheduleInventoryFilter(player, "category click");
+                        // Проверяем новый заголовок
+                        String newTitle = player.getOpenInventory().getTitle();
+                        Logger.info("New inventory title after click: '" + newTitle + "'");
+                        scheduleInventoryFilter(player, "category click - new title: " + newTitle);
                     }
-                }.runTaskLater(SBA.getPluginInstance(), 10L); // Увеличил задержку до 10 тиков
+                }.runTaskLater(SBA.getPluginInstance(), 20L); // 20 тиков задержки
             }
         }
-    }
-    
-    private boolean isToolCategoryIcon(ItemStack item) {
-        if (item == null) return false;
-        
-        Material type = item.getType();
-        String name = type.name();
-        
-        // Иконка категории инструментов - это каменная кирка
-        return name.contains("STONE_PICKAXE") || 
-               (name.contains("PICKAXE") && item.hasItemMeta() && 
-                item.getItemMeta().hasDisplayName() && 
-                item.getItemMeta().getDisplayName().contains("Инструменты"));
     }
     
     private void scheduleInventoryFilter(Player player, String reason) {
@@ -108,7 +103,7 @@ public class ShopListener implements Listener {
                     e.printStackTrace();
                 }
             }
-        }.runTaskLater(SBA.getPluginInstance(), 15L); // 15 тиков задержки
+        }.runTaskLater(SBA.getPluginInstance(), 10L);
     }
     
     private void filterShopInventory(Player player) {
@@ -119,7 +114,7 @@ public class ShopListener implements Listener {
         }
         
         String title = player.getOpenInventory().getTitle();
-        Logger.info("Filtering inventory: " + title + " (size: " + openInv.getSize() + ")");
+        Logger.info("Filtering inventory: '" + title + "' (size: " + openInv.getSize() + ")");
         
         boolean isToolsCategory = title.contains("Tools") || title.contains("Инструменты");
         boolean isMainMenu = title.contains("Shop") || title.contains("Магазин") || title.contains("Item Shop");
@@ -152,7 +147,6 @@ public class ShopListener implements Listener {
                 if (isMainMenu) {
                     // В главном меню показываем всё (иконки категорий)
                     shouldShow = true;
-                    Logger.info("  -> Main menu, keeping");
                 } else if (isToolsCategory) {
                     // В категории инструментов фильтруем
                     if (playerLevel == 0) {
@@ -171,8 +165,6 @@ public class ShopListener implements Listener {
                             shouldShow = (itemLevel == 0 || itemLevel == 1);
                         }
                     }
-                    
-                    Logger.info("  -> Tools category: shouldShow=" + shouldShow);
                 } else {
                     // Другие категории - показываем всё
                     shouldShow = true;
@@ -181,9 +173,10 @@ public class ShopListener implements Listener {
                 if (!shouldShow) {
                     openInv.setItem(i, createPlaceholderItem());
                     hiddenCount++;
-                    Logger.info("  ❌ HIDDEN");
+                    Logger.info("  ❌ HIDDEN (reason: shouldShow=" + shouldShow + ")");
                 } else {
                     visibleCount++;
+                    Logger.info("  ✅ VISIBLE");
                 }
             }
         }
