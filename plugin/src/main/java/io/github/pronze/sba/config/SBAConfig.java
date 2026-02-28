@@ -303,26 +303,9 @@ public class SBAConfig implements IConfigurator {
                     .key("trap-message").defValue(true)
                     .key("limit-items-enabled").defValue(true)
                     .key("tool-upgrade-enabled").defValue(true)
+                    .key("tool-downgrade-on-death").defValue(true) // ВКЛЮЧАЕМ ПОНИЖЕНИЕ ПРИ СМЕРТИ
                     .section("limits")
                     .key("default").defValue(-1)
-                    .back()
-                    .section("tool-upgrade-prices")
-                    .section("pickaxe")
-                        .key("wood").defValue(4)
-                        .key("stone").defValue(8)
-                        .key("iron").defValue(16)
-                        .key("diamond").defValue(32)
-                    .back()
-                    .section("axe")
-                        .key("wood").defValue(4)
-                        .key("stone").defValue(8)
-                        .key("iron").defValue(16)
-                        .key("diamond").defValue(32)
-                    .back()
-                    .section("shears")
-                        .key("normal").defValue(8)
-                        .key("efficiency2").defValue(12)
-                        .key("efficiency3").defValue(16)
                     .back()
                     .back()
                     .section("normal-shop")
@@ -371,9 +354,10 @@ public class SBAConfig implements IConfigurator {
                     .key("leggings").defValue(true)
                     .key("chestplate").defValue(false)
                     .key("helmet").defValue(false)
+                    .key("tools").defValue(true) // ВКЛЮЧАЕМ УЛУЧШЕНИЕ ИНСТРУМЕНТОВ
                     .section("enchants")
                     .key("sharpness").defValue(List.of("SWORD"))
-                    .key("efficiency").defValue(List.of("PICK"))
+                    .key("efficiency").defValue(List.of("PICKAXE", "AXE", "SHEARS")) // ИЗМЕНЕНО: теперь и для инструментов
                     .key("knockback").defValue(List.of("SWORD"))
                     .key("protection").defValue(List.of("HELMET", "BOOT", "CHESTPLATE", "LEGGINGS"))
                     .key("THORNS").defValue(List.of("HELMET", "BOOT", "CHESTPLATE", "LEGGINGS"))
@@ -499,6 +483,7 @@ public class SBAConfig implements IConfigurator {
         public boolean leggings() { return getBoolean("upgrade-item.leggings", true); }
         public boolean chestplate() { return getBoolean("upgrade-item.chestplate", false); }
         public boolean helmet() { return getBoolean("upgrade-item.helmet", false); }
+        public boolean tools() { return getBoolean("upgrade-item.tools", true); } // НОВЫЙ МЕТОД
         public EnchantApplyConfig enchants() { return new EnchantApplyConfig(); }
         public class EnchantApplyConfig {
             public List<String> keys() { return AddonAPI.getInstance().getConfigurator().getSubKeys("upgrade-item.enchants"); }
@@ -633,14 +618,7 @@ public class SBAConfig implements IConfigurator {
     
     // ========== МЕТОДЫ ДЛЯ ПРОКАЧКИ ИНСТРУМЕНТОВ ==========
     public boolean isToolUpgradeEnabled() { return getBoolean("shop.tool-upgrade-enabled", true); }
-    public int getToolUpgradePrice(String toolType, String level) { return getInt("shop.tool-upgrade-prices." + toolType + "." + level, 4); }
-    public String getNextToolLevel(String currentLevel) {
-        switch (currentLevel) {
-            case "wood": return "stone"; case "stone": return "iron"; case "iron": return "diamond";
-            case "normal": return "efficiency1"; case "efficiency1": return "efficiency2";
-            default: return null;
-        }
-    }
+    public boolean isToolDowngradeOnDeathEnabled() { return getBoolean("shop.tool-downgrade-on-death", true); } // НОВЫЙ МЕТОД
     
     // ========== МЕТОДЫ ДЛЯ РАЗДЕЛЬНЫХ МАГАЗИНОВ ==========
 
