@@ -125,32 +125,46 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 // Проверяем, является ли предмет инструментом
                 ToolType toolType = ToolUpgradeManager.getInstance().getToolType(originalItem);
                 if (toolType != null) {
-                    // Это инструмент - проверяем, должен ли он быть виден
+                    // Это инструмент
                     int itemLevel = ToolUpgradeManager.getInstance().getCurrentLevel(originalItem);
                     int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
                     
-                    // Отладочный вывод
-                    // Logger.info("Tool: " + toolType + " ItemLevel: " + itemLevel + " PlayerLevel: " + playerLevel);
+                    // Отладка - убрать после исправления
+                    Logger.info("🔧 Tool: " + toolType + " | Item: " + originalItem.getType() + 
+                               " | ItemLevel: " + itemLevel + " | PlayerLevel: " + playerLevel);
                     
                     boolean shouldShow = false;
                     
-                    // ВСЕГДА показываем деревянные инструменты (уровень 0) если игрок их ещё не купил
-                    if (playerLevel == 0 && itemLevel == 0) {
-                        shouldShow = true; // Показываем деревянные инструменты новым игрокам
-                    }
-                    // Если игрок уже имеет инструмент, показываем текущий и следующий уровень
-                    else if (playerLevel > 0) {
+                    // Для новых игроков (playerLevel = 0) показываем ТОЛЬКО деревянные инструменты (level 0)
+                    if (playerLevel == 0) {
+                        shouldShow = (itemLevel == 0);
+                    } 
+                    // Для игроков с инструментом показываем текущий и следующий уровень
+                    else {
                         shouldShow = (itemLevel == playerLevel || itemLevel == playerLevel + 1);
                     }
                     
+                    // Особый случай для ножниц (только 2 уровня)
+                    if (toolType == ToolType.SHEARS) {
+                        if (playerLevel == 0) {
+                            shouldShow = (itemLevel == 0);
+                        } else {
+                            shouldShow = (itemLevel == 0 || itemLevel == 1);
+                        }
+                    }
+                    
                     if (!shouldShow) {
-                        // Скрываем предмет, заменяя его на пустой
+                        // Скрываем предмет
                         event.setStack(org.screamingsandals.lib.item.builder.ItemStackFactory.getAir());
+                        Logger.info("❌ Hiding tool: " + originalItem.getType());
                         return;
+                    } else {
+                        Logger.info("✅ Showing tool: " + originalItem.getType());
                     }
                 }
             } catch (Exception e) {
-                Logger.trace("Error filtering tool in shop: " + e.getMessage());
+                Logger.error("Error filtering tool in shop: " + e.getMessage());
+                e.printStackTrace();
             }
         }
         
