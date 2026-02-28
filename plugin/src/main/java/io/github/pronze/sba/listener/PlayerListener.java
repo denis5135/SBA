@@ -78,91 +78,182 @@ public class PlayerListener implements Listener {
         generatorDropItems.addAll(SBAUtil.parseMaterialFromConfig("running-generator-drops"));
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerDeath(PlayerDeathEvent e) {
         final var player = e.getEntity();
 
+        // Проверяем, играет ли игрок в BedWars
         if (!Main.getInstance().isPlayerPlayingAnyGame(player)) {
             return;
         }
 
         final var game = Main.getInstance().getGameOfPlayer(player);
-        if (game.getStatus() != GameStatus.RUNNING) {
+        if (game == null || game.getStatus() != GameStatus.RUNNING) {
             return;
         }
 
-        final var arena = ArenaManager
-                .getInstance()
-                .get(game.getName())
-                .orElseThrow();
+        final var arena = ArenaManager.getInstance().get(game.getName());
+        if (!arena.isPresent()) {
+            return;
+        }
 
         final var itemArr = new ArrayList<ItemStack>();
         final var sword = Main.isLegacy() ? new ItemStack(Material.valueOf("WOOD_SWORD"))
                 : new ItemStack(Material.WOODEN_SWORD);
 
-        Stream<ItemStack> stream;
-        if (Server.isVersion(1, 9)) {
-            stream = Arrays.stream(player.getInventory().getContents());
-        } else {
-            // getContents() work as get storage contents in 1.8, we need to manually append armor slots
-            stream = Stream.concat(
-                    Arrays.stream(player.getInventory().getContents()),
-                    Arrays.stream(player.getInventory().getArmorContents())
-            );
-        }
-        
-        // Сохраняем инвентарь и обрабатываем понижение инструментов
-        stream.filter(Objects::nonNull)
-                .forEach(stack -> {
-                    final String name = stack.getType().name();
-                    var endStr = name.substring(name.contains("_") ? name.indexOf("_") + 1 : 0);
-                    switch (endStr) {
-                        case "SWORD":
-                            itemArr.add(ShopUtil.downgradeItem(stack, DegradableItem.WEAPONARY));
-                            break;
-                        case "PICKAXE":
-                        case "AXE":
-                        case "SHEARS":
-                            // Проверяем, можно ли улучшать этот инструмент
-                            if (ToolUpgradeManager.getInstance().canUpgrade(stack)) {
-                                // Если можно - понижаем уровень в данных
-                                ToolType type = ToolUpgradeManager.getInstance().getToolType(stack);
-                                if (type != null) {
-                                    ToolUpgradeManager.getInstance().downgradeTool(player, type);
-                                }
+        // Обрабатываем инвентарь с защитой от ошибок
+        try {
+            // Получаем содержимое инвентаря безопасно
+            ItemStack[] contents;
+            ItemStack[] armorContents;
+            
+            try {
+                contents = player.getInventory().getContents();
+                armorContents = player.getInventory().getArmorContents();
+            } catch (Exception ex) {
+                Logger.error("Failed to get inventory contents: " + ex.getMessage());
+                contents = new ItemStack[0];
+                armorContents = new ItemStack[0];
+            }
+
+            // Создаём поток для обработки предметов
+            Stream<ItemStack> stream;
+            if (Server.isVersion(1, 9)) {
+                stream = Arrays.stream(contents);
+            } else {
+                stream = Stream.concat(
+                        Arrays.stream(contents),
+                        Arrays.stream(armorContents)
+                );
+            }
+            
+            // Обрабатываем каждый предмет с защитой от ошибок
+            stream.filter(Objects::nonNull)
+                    .forEach(stack -> {
+                        try {
+                            if (stack == null || stack.getType() == null || stack.getType() == Material.AIR) {
+                                return;
                             }
-                            // Сохраняем предмет как есть (он уже понижен или нет)
-                            itemArr.add(stack);
-                            break;
-                        case "LEGGINGS":
-                        case "BOOTS":
-                        case "CHESTPLATE":
-                        case "HELMET":
-                            itemArr.add(ShopUtil.downgradeItem(stack, DegradableItem.ARMOR));
-                            break;
-                        default:
-                            itemArr.add(stack);
-                            break;
-                    }
-                });
 
-        itemArr.add(sword);
-        arena.getPlayerData(player.getUniqueId()).ifPresent(playerData -> playerData.setInventory(itemArr));
+                            final String name = stack.getType().name();
+                            if (name == null || name.isEmpty()) {
+                                itemArr.add(stack);
+                                return;
+                            }
 
+                            var endStr = name.substring(name.contains("_") ? name.indexOf("_") + 1 : 0);
+                            if (endStr == null || endStr.isEmpty()) {
+                                itemArr.add(stack);
+                                return;
+                            }
+
+                            switch (endStr) {
+                                case "SWORD":
+                                    itemArr.add(ShopUtil.downgradeItem(stack, DegradableItem.WEAPONARY));
+                                    break;
+                                    
+                                case "PICKAXE":
+                                case "AXE":
+                                case "SHEARS":
+                                    // Проверяем, включены ли улучшения инструментов
+                                    if (SBAConfig.getInstance().isToolUpgradeEnabled()) {
+                                        // Проверяем, можно ли улучшать этот инструмент
+                                        if (ToolUpgradeManager.getInstance().canUpgrade(stack)) {
+                                            // Если можно - понижаем уровень в данных
+                                            ToolType type = ToolUpgradeManager.getInstance().getToolType(stack);
+                                            if (type != null && SBAConfig.getInstance().isToolDowngradeOnDeathEnabled()) {
+                                                ToolUpgradeManager.getInstance().downgradeTool(player, type);
+                                            }
+                                        }
+                                    }
+                                    // Сохраняем предмет как есть
+                                    itemArr.add(stack);
+                                    break;
+                                    
+                                case "LEGGINGS":
+                                case "BOOTS":
+                                case "CHESTPLATE":
+                                case "HELMET":
+                                    itemArr.add(ShopUtil.downgradeItem(stack, DegradableItem.ARMOR));
+                                    break;
+                                    
+                                default:
+                                    itemArr.add(stack);
+                                    break;
+                            }
+                        } catch (Exception ex) {
+                            // Игнорируем ошибки при обработке отдельных предметов
+                            Logger.trace("Error processing item on death: " + ex.getMessage());
+                            // Всё равно добавляем предмет, чтобы не потерять его
+                            try {
+                                itemArr.add(stack);
+                            } catch (Exception ignored) {}
+                        }
+                    });
+        } catch (Exception ex) {
+            Logger.error("Error processing player inventory on death: " + ex.getMessage());
+            // В случае критической ошибки, пытаемся сохранить хотя бы меч
+            itemArr.add(sword);
+        }
+
+        // Добавляем меч, если его ещё нет
+        if (!itemArr.contains(sword)) {
+            itemArr.add(sword);
+        }
+
+        // Сохраняем инвентарь в данные арены
+        try {
+            arena.get().getPlayerData(player.getUniqueId()).ifPresent(playerData -> {
+                try {
+                    playerData.setInventory(itemArr);
+                } catch (Exception ex) {
+                    Logger.error("Failed to save inventory to player data: " + ex.getMessage());
+                }
+            });
+        } catch (Exception ex) {
+            Logger.error("Failed to get player data: " + ex.getMessage());
+        }
+
+        // Понижаем все инструменты в данных (даже если не сохраняем в инвентарь)
+        if (SBAConfig.getInstance().isToolUpgradeEnabled() && 
+            SBAConfig.getInstance().isToolDowngradeOnDeathEnabled()) {
+            try {
+                ToolUpgradeManager.getInstance().downgradeAllTools(player);
+            } catch (Exception ex) {
+                Logger.error("Error downgrading tools on death: " + ex.getMessage());
+            }
+        }
+
+        // Даём ресурсы убийце
         if (SBAConfig.getInstance().getBoolean("give-killer-resources", true)) {
             final var killer = e.getEntity().getKiller();
 
             if (killer != null && Main.getInstance().isPlayerPlayingAnyGame(killer)
                     && killer.getGameMode() == GameMode.SURVIVAL) {
-                Arrays.stream(player.getInventory().getContents())
-                        .filter(Objects::nonNull)
-                        .forEach(drop -> {
-                            if (generatorDropItems.contains(drop.getType())) {
-                                killer.sendMessage("+" + drop.getAmount() + " "
-                                        + drop.getType().name().toLowerCase().replace("_", " "));
-                                killer.getInventory().addItem(drop);
-                            }
-                        });
+                try {
+                    ItemStack[] killerContents;
+                    try {
+                        killerContents = player.getInventory().getContents();
+                    } catch (Exception ex) {
+                        killerContents = new ItemStack[0];
+                    }
+                    
+                    Arrays.stream(killerContents)
+                            .filter(Objects::nonNull)
+                            .forEach(drop -> {
+                                try {
+                                    if (generatorDropItems.contains(drop.getType())) {
+                                        killer.sendMessage("+" + drop.getAmount() + " "
+                                                + drop.getType().name().toLowerCase().replace("_", " "));
+                                        killer.getInventory().addItem(drop.clone());
+                                    }
+                                } catch (Exception ex) {
+                                    Logger.trace("Error giving resource to killer: " + ex.getMessage());
+                                }
+                            });
+                } catch (Exception ex) {
+                    Logger.trace("Error processing killer resources: " + ex.getMessage());
+                }
             }
         }
 
@@ -171,6 +262,7 @@ public class PlayerListener implements Listener {
 
         if (victimTeam == null)
             return;
+            
         if (SBAConfig.getInstance().getBoolean("respawn-cooldown.enabled", true) &&
                 victimTeam.isAlive() && game.isPlayerInAnyTeam(player) &&
                 game.getTeamOfPlayer(player).isTargetBlockExists()) {
@@ -185,57 +277,67 @@ public class PlayerListener implements Listener {
 
                 @Override
                 public void run() {
-                    if (!Main.isPlayerInGame(player)) {
-                        this.cancel();
-                        return;
-                    }
-                    final org.screamingsandals.lib.spectator.Component respawnTitle = LanguageService
-                            .getInstance()
-                            .get(MessageKeys.RESPAWN_COUNTDOWN_TITLE)
-                            .replace("%time%", String.valueOf(livingTime))
-                            .toComponent();
-                    final org.screamingsandals.lib.spectator.Component respawnSubtitle = LanguageService
-                            .getInstance()
-                            .get(MessageKeys.RESPAWN_COUNTDOWN_SUBTITLE)
-                            .replace("%time%", String.valueOf(livingTime))
-                            .toComponent();
-                    // send custom title because we disabled BedWars from showing any title
-                    if (livingTime > 0) {
-                        SBAUtil.sendTitle(wrappedPlayer, respawnTitle,
-                                respawnSubtitle,
-                                0, 20, 0);
-
-                        LanguageService
+                    try {
+                        if (!Main.isPlayerInGame(player)) {
+                            this.cancel();
+                            return;
+                        }
+                        final org.screamingsandals.lib.spectator.Component respawnTitle = LanguageService
                                 .getInstance()
-                                .get(MessageKeys.RESPAWN_COUNTDOWN_MESSAGE)
+                                .get(MessageKeys.RESPAWN_COUNTDOWN_TITLE)
                                 .replace("%time%", String.valueOf(livingTime))
-                                .send(wrappedPlayer);
-                        livingTime--;
-                    }
+                                .toComponent();
+                        final org.screamingsandals.lib.spectator.Component respawnSubtitle = LanguageService
+                                .getInstance()
+                                .get(MessageKeys.RESPAWN_COUNTDOWN_SUBTITLE)
+                                .replace("%time%", String.valueOf(livingTime))
+                                .toComponent();
+                        
+                        if (livingTime > 0) {
+                            SBAUtil.sendTitle(wrappedPlayer, respawnTitle,
+                                    respawnSubtitle,
+                                    0, 20, 0);
 
-                    if (livingTime <= 0) {
-                        if (gVictim.isSpectator && buffer > 0) {
-                            buffer--;
-                        } else {
                             LanguageService
                                     .getInstance()
-                                    .get(MessageKeys.RESPAWNED_MESSAGE)
+                                    .get(MessageKeys.RESPAWN_COUNTDOWN_MESSAGE)
+                                    .replace("%time%", String.valueOf(livingTime))
                                     .send(wrappedPlayer);
-
-                            var respawnedTitle = LanguageService
-                                    .getInstance()
-                                    .get(MessageKeys.RESPAWNED_TITLE)
-                                    .toComponent();
-
-                            SBAUtil.sendTitle(wrappedPlayer, respawnedTitle,
-                                    org.screamingsandals.lib.spectator.Component.empty(),
-                                    5, 40, 5);
-                            ShopUtil.giveItemToPlayer(itemArr, player,
-                                    Main.getInstance().getGameByName(game.getName()).getTeamOfPlayer(player)
-                                            .getColor());
-                            ShopUtil.applyTeamUpgrades(player, game);
-                            this.cancel();
+                            livingTime--;
                         }
+
+                        if (livingTime <= 0) {
+                            if (gVictim.isSpectator && buffer > 0) {
+                                buffer--;
+                            } else {
+                                LanguageService
+                                        .getInstance()
+                                        .get(MessageKeys.RESPAWNED_MESSAGE)
+                                        .send(wrappedPlayer);
+
+                                var respawnedTitle = LanguageService
+                                        .getInstance()
+                                        .get(MessageKeys.RESPAWNED_TITLE)
+                                        .toComponent();
+
+                                SBAUtil.sendTitle(wrappedPlayer, respawnedTitle,
+                                        org.screamingsandals.lib.spectator.Component.empty(),
+                                        5, 40, 5);
+                                
+                                try {
+                                    ShopUtil.giveItemToPlayer(itemArr, player,
+                                            Main.getInstance().getGameByName(game.getName()).getTeamOfPlayer(player)
+                                                    .getColor());
+                                    ShopUtil.applyTeamUpgrades(player, game);
+                                } catch (Exception ex) {
+                                    Logger.error("Error giving items on respawn: " + ex.getMessage());
+                                }
+                                this.cancel();
+                            }
+                        }
+                    } catch (Exception ex) {
+                        Logger.error("Error in respawn countdown: " + ex.getMessage());
+                        this.cancel();
                     }
                 }
             }.runTaskTimer(SBA.getPluginInstance(), 0L, 20L);
@@ -314,53 +416,78 @@ public class PlayerListener implements Listener {
     public void onPlayerLeave(PlayerQuitEvent e) {
         final var player = e.getPlayer();
         final var uuid = player.getUniqueId();
-        ScoreboardManager
-                .getInstance()
-                .fromCache(uuid)
-                .ifPresent(Scoreboard::destroy);
+        
+        try {
+            ScoreboardManager
+                    .getInstance()
+                    .fromCache(uuid)
+                    .ifPresent(Scoreboard::destroy);
+        } catch (Exception ex) {
+            Logger.trace("Error destroying scoreboard: " + ex.getMessage());
+        }
 
         final var wrappedPlayer = Players.wrapPlayer(player)
                 .as(SBAPlayerWrapper.class);
-        SBA.getInstance()
-                .getPartyManager()
-                .getPartyOf(wrappedPlayer)
-                .ifPresent(party -> {
-                    party.removePlayer(wrappedPlayer);
-                    if (party.getMembers().size() == 1) {
-                        SBA.getInstance()
-                                .getPartyManager()
-                                .disband(party.getUUID());
-                        return;
-                    }
-                    if (party.getPartyLeader().equals(wrappedPlayer)) {
-                        party
-                                .getMembers()
-                                .stream()
-                                .findAny()
-                                .ifPresentOrElse(member -> {
-                                    party.setPartyLeader(member);
-                                    LanguageService
-                                            .getInstance()
-                                            .get(MessageKeys.PARTY_MESSAGE_PROMOTED_LEADER)
-                                            .replace("%player%",
-                                                    member.as(Player.class).getDisplayName() + ChatColor.RESET)
-                                            .send(party.getMembers().toArray(new SBAPlayerWrapper[0]));
+        
+        try {
+            SBA.getInstance()
+                    .getPartyManager()
+                    .getPartyOf(wrappedPlayer)
+                    .ifPresent(party -> {
+                        try {
+                            party.removePlayer(wrappedPlayer);
+                            if (party.getMembers().size() == 1) {
+                                SBA.getInstance()
+                                        .getPartyManager()
+                                        .disband(party.getUUID());
+                                return;
+                            }
+                            if (party.getPartyLeader().equals(wrappedPlayer)) {
+                                party
+                                        .getMembers()
+                                        .stream()
+                                        .findAny()
+                                        .ifPresentOrElse(member -> {
+                                            party.setPartyLeader(member);
+                                            LanguageService
+                                                    .getInstance()
+                                                    .get(MessageKeys.PARTY_MESSAGE_PROMOTED_LEADER)
+                                                    .replace("%player%",
+                                                            member.as(Player.class).getDisplayName() + ChatColor.RESET)
+                                                    .send(party.getMembers().toArray(new SBAPlayerWrapper[0]));
 
-                                }, () -> SBA.getInstance().getPartyManager()
-                                        .disband(party.getUUID()));
-                    }
-                    LanguageService
-                            .getInstance()
-                            .get(MessageKeys.PARTY_MESSAGE_OFFLINE_LEFT)
-                            .replace("%player%", player.getDisplayName() + ChatColor.RESET)
-                            .send(party.getMembers().stream().filter(member -> !wrappedPlayer.equals(member))
-                                    .toArray(SBAPlayerWrapper[]::new));
-                });
+                                        }, () -> SBA.getInstance().getPartyManager()
+                                                .disband(party.getUUID()));
+                            }
+                            LanguageService
+                                    .getInstance()
+                                    .get(MessageKeys.PARTY_MESSAGE_OFFLINE_LEFT)
+                                    .replace("%player%", player.getDisplayName() + ChatColor.RESET)
+                                    .send(party.getMembers().stream().filter(member -> !wrappedPlayer.equals(member))
+                                            .toArray(SBAPlayerWrapper[]::new));
+                        } catch (Exception ex) {
+                            Logger.error("Error processing party leave: " + ex.getMessage());
+                        }
+                    });
+        } catch (Exception ex) {
+            Logger.trace("Error getting party: " + ex.getMessage());
+        }
+        
+        // Очищаем данные инструментов при выходе
+        try {
+            ToolUpgradeManager.getInstance().removePlayerData(uuid);
+        } catch (Exception ex) {
+            Logger.trace("Error removing tool data: " + ex.getMessage());
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void afterPlayerLeave(PlayerQuitEvent event) {
-        SBA.getInstance().getPlayerWrapperService().unregister(event.getPlayer());
+        try {
+            SBA.getInstance().getPlayerWrapperService().unregister(event.getPlayer());
+        } catch (Exception ex) {
+            Logger.trace("Error unregistering player: " + ex.getMessage());
+        }
     }
 
     @EventHandler
@@ -370,11 +497,15 @@ public class PlayerListener implements Listener {
             final var player = (Player) entity;
 
             if (Main.isPlayerInGame(player)) {
-                final var game = Main.getInstance().getGameOfPlayer(player);
-                ArenaManager
-                        .getInstance()
-                        .get(game.getName())
-                        .ifPresent(arena -> arena.removeHiddenPlayer(player));
+                try {
+                    final var game = Main.getInstance().getGameOfPlayer(player);
+                    ArenaManager
+                            .getInstance()
+                            .get(game.getName())
+                            .ifPresent(arena -> arena.removeHiddenPlayer(player));
+                } catch (Exception ex) {
+                    Logger.trace("Error removing hidden player: " + ex.getMessage());
+                }
 
                 if (event.getCause() == EntityDamageEvent.DamageCause.ENTITY_EXPLOSION) {
                     event.setDamage(SBAConfig.getInstance().node("explosion-damage").getDouble(1.0D));
@@ -392,43 +523,47 @@ public class PlayerListener implements Listener {
             return;
 
         if (item.getType() == Material.POTION) {
-            final var potionMeta = (PotionMeta) item.getItemMeta();
-            boolean isInvis = false;
-            if (Version.isVersion(1, 20, 5)) {
-                var result = (NamespacedKey) Reflect.fastInvokeResulted(potionMeta, "getBasePotionType").fastInvoke("getKey");
-                if (result != null && ("invisibility".equals(result.getKey()) || "long_invisibility".equals(result.getKey()))) {
-                    isInvis = true;
-                }
-            } else if (Version.isVersion(1, 9)) {
-                if (potionMeta.getBasePotionData().getType() == PotionType.INVISIBILITY) {
-                    isInvis = true;
-                }
-            } else {
-                if (org.bukkit.potion.Potion.fromItemStack(item).getType() == PotionType.INVISIBILITY) {
-                    isInvis = true;
-                }
-            }
-
-            if (!isInvis && potionMeta.hasCustomEffects()) {
-                isInvis = potionMeta
-                        .getCustomEffects()
-                        .stream()
-                        .anyMatch(potionEffect -> potionEffect.getType().getName()
-                                .equalsIgnoreCase(PotionEffectType.INVISIBILITY.getName()));
-            }
-
-            if (isInvis) {
-                final var playerGame = Main.getInstance().getGameOfPlayer(player);
-                ArenaManager
-                        .getInstance()
-                        .get(playerGame.getName())
-                        .ifPresent(arena -> arena.addHiddenPlayer(player));
-            }
-
             try {
-                Reflect.setField(event.getClass(), "replacement", event, new ItemStack(Material.AIR));
-                // event.setReplacement(new ItemStack(Material.AIR));
-            } catch (Throwable t) {
+                final var potionMeta = (PotionMeta) item.getItemMeta();
+                boolean isInvis = false;
+                if (Version.isVersion(1, 20, 5)) {
+                    var result = (NamespacedKey) Reflect.fastInvokeResulted(potionMeta, "getBasePotionType").fastInvoke("getKey");
+                    if (result != null && ("invisibility".equals(result.getKey()) || "long_invisibility".equals(result.getKey()))) {
+                        isInvis = true;
+                    }
+                } else if (Version.isVersion(1, 9)) {
+                    if (potionMeta.getBasePotionData().getType() == PotionType.INVISIBILITY) {
+                        isInvis = true;
+                    }
+                } else {
+                    if (org.bukkit.potion.Potion.fromItemStack(item).getType() == PotionType.INVISIBILITY) {
+                        isInvis = true;
+                    }
+                }
+
+                if (!isInvis && potionMeta.hasCustomEffects()) {
+                    isInvis = potionMeta
+                            .getCustomEffects()
+                            .stream()
+                            .anyMatch(potionEffect -> potionEffect.getType().getName()
+                                    .equalsIgnoreCase(PotionEffectType.INVISIBILITY.getName()));
+                }
+
+                if (isInvis) {
+                    final var playerGame = Main.getInstance().getGameOfPlayer(player);
+                    ArenaManager
+                            .getInstance()
+                            .get(playerGame.getName())
+                            .ifPresent(arena -> arena.addHiddenPlayer(player));
+                }
+
+                try {
+                    Reflect.setField(event.getClass(), "replacement", event, new ItemStack(Material.AIR));
+                } catch (Throwable t) {
+                    // Игнорируем
+                }
+            } catch (Exception ex) {
+                Logger.trace("Error processing potion: " + ex.getMessage());
             }
         }
     }
@@ -440,15 +575,19 @@ public class PlayerListener implements Listener {
         if (!Main.isPlayerInGame(player))
             return;
 
-        final var playerGame = Main.getInstance().getGameOfPlayer(player);
-        ArenaManager
-                .getInstance()
-                .get(playerGame.getName())
-                .ifPresent(arena -> {
-                    if (arena.isPlayerHidden(player)) {
-                        arena.updateHiddenPlayer(player);
-                    }
-                });
+        try {
+            final var playerGame = Main.getInstance().getGameOfPlayer(player);
+            ArenaManager
+                    .getInstance()
+                    .get(playerGame.getName())
+                    .ifPresent(arena -> {
+                        if (arena.isPlayerHidden(player)) {
+                            arena.updateHiddenPlayer(player);
+                        }
+                    });
+        } catch (Exception ex) {
+            Logger.trace("Error updating hidden player: " + ex.getMessage());
+        }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -464,9 +603,9 @@ public class PlayerListener implements Listener {
         if (!event.hasBlock())
             return;
 
-        BlockFace face = event.getBlockFace();
-        Location loc = event.getClickedBlock().getRelative(face).getLocation();
         try {
+            BlockFace face = event.getBlockFace();
+            Location loc = event.getClickedBlock().getRelative(face).getLocation();
             Collection<Entity> players = loc.getNearbyEntitiesByType(Player.class, 1.5, 1.5, 1.5, null);
             for (Entity playerEntity : players) {
                 Player player = (Player) playerEntity;
@@ -483,71 +622,78 @@ public class PlayerListener implements Listener {
     public void onInteractPlaceOnEntity(PlayerInteractEntityEvent event) {
         if (!Main.isPlayerInGame(event.getPlayer()))
             return;
-        Logger.trace("onInteractPlaceOnEntity");
-        if (event.isCancelled()) {
-            Logger.trace("onInteractPlaceOnEntity.isCancelled");
+        if (event.isCancelled())
             return;
-        }
+            
         Player player = event.getPlayer();
         if (player.getItemInHand() == null || !player.getItemInHand().getType().isBlock()) {
-            Logger.trace("onInteractPlaceOnEntity.getItemInHand");
             return;
         }
+        
         if (event.getRightClicked() instanceof Player) {
-            Player target = (Player) event.getRightClicked();
-            if (target.getGameMode() == GameMode.SURVIVAL) {
-                Logger.trace("onInteractPlaceOnEntity.target-is-not-spectator");
-                return;
+            try {
+                Player target = (Player) event.getRightClicked();
+                if (target.getGameMode() == GameMode.SURVIVAL) {
+                    return;
+                }
+                Block replaced = target.getLocation().getBlock();
+                BlockState state = replaced.getState();
+                byte rawData = state.getRawData();
+
+                BlockState newState = replaced.getState();
+
+                newState.setType(player.getItemInHand().getType());
+
+                BlockPlaceEvent event_ = new BlockPlaceEvent(replaced, state, replaced, event.getPlayer().getItemInHand(),
+                        player, true);
+
+                Bukkit.getServer().getPluginManager().callEvent(event_);
+
+                if (event_.isCancelled()) {
+                    newState.setType(state.getType());
+                    newState.setRawData(rawData);
+                }
+                newState.update(true);
+            } catch (Exception ex) {
+                Logger.trace("Error in interact place on entity: " + ex.getMessage());
             }
-            Block replaced = target.getLocation().getBlock();
-            BlockState state = replaced.getState();
-            byte rawData = state.getRawData();
-
-            BlockState newState = replaced.getState();
-
-            newState.setType(player.getItemInHand().getType());
-            // replaced.setType(player.getItemInHand().getType());
-            Logger.trace("onInteractPlaceOnEntity {}", player.getItemInHand().getType());
-
-            BlockPlaceEvent event_ = new BlockPlaceEvent(replaced, state, replaced, event.getPlayer().getItemInHand(),
-                    player, true);
-
-            Bukkit.getServer().getPluginManager().callEvent(event_);
-            Logger.trace("onInteractPlaceOnEntity {} {}", event, event.isCancelled());
-
-            if (event.isCancelled()) {
-                Logger.trace("event.isCancelled");
-                newState.setType(state.getType());
-                newState.setRawData(rawData);
-            }
-            // replaced.getState().setType(player.getItemInHand().getType());
-            newState.update(true);
         }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerJoin(PlayerJoinEvent e) {
         final var player = e.getPlayer();
-        SBA.getInstance().getPlayerWrapperService().register(player);
+        
+        try {
+            SBA.getInstance().getPlayerWrapperService().register(player);
+        } catch (Exception ex) {
+            Logger.error("Failed to register player wrapper: " + ex.getMessage());
+        }
 
         if (player.hasPermission(Permissions.UPGRADE.getKey())) {
             if (SBA.getInstance().isPendingUpgrade()) {
                 Bukkit.getScheduler().runTaskLater(SBA.getPluginInstance(), () -> {
-                    player.sendMessage(
-                            "§6[SBA]: Plugin has detected a version change, do you want to upgrade internal files?");
-                    player.sendMessage("Type /sba upgrade to upgrade file");
-                    player.sendMessage("§cif you want to cancel the upgrade files do /sba cancel");
+                    try {
+                        player.sendMessage(
+                                "§6[SBA]: Plugin has detected a version change, do you want to upgrade internal files?");
+                        player.sendMessage("Type /sba upgrade to upgrade file");
+                        player.sendMessage("§cif you want to cancel the upgrade files do /sba cancel");
+                    } catch (Exception ex) {
+                        Logger.trace("Error sending upgrade message: " + ex.getMessage());
+                    }
                 }, 40L);
             }
         }
+        
         if (player.hasPermission(Permissions.UPDATE.getKey())) {
-            {
-                if (SBA.getInstance().isPendingUpdate() && SBAConfig.getInstance().shouldWarnPlayerAboutUpdate()) {
-
-                    Bukkit.getScheduler().runTaskLater(SBA.getPluginInstance(), () -> {
+            if (SBA.getInstance().isPendingUpdate() && SBAConfig.getInstance().shouldWarnPlayerAboutUpdate()) {
+                Bukkit.getScheduler().runTaskLater(SBA.getPluginInstance(), () -> {
+                    try {
                         UpdateChecker.getInstance().sendToUser(player);
-                    }, 40L);
-                }
+                    } catch (Exception ex) {
+                        Logger.trace("Error sending update message: " + ex.getMessage());
+                    }
+                }, 40L);
             }
         }
     }
