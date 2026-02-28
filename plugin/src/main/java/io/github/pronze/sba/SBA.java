@@ -124,7 +124,7 @@ import static io.github.pronze.sba.utils.MessageUtils.showErrorMessage;
         SidebarManager.class,
         AntiCheatIntegration.class,
         QuickBuyConfig.class,
-        ToolUpgradeListener.class
+        ToolUpgradeListener.class,
         ShopListener.class
 })
 public class SBA implements AddonAPI {
