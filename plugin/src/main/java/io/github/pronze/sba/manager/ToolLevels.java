@@ -1,6 +1,7 @@
 package io.github.pronze.sba.manager;
 
 import lombok.Data;
+import org.bukkit.entity.Player;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -29,5 +30,16 @@ public class ToolLevels {
     
     public static boolean hasData(UUID uuid) {
         return playerData.containsKey(uuid);
+    }
+    
+    // Метод для очистки при выходе из игры (как в BedWars1058)
+    public void destroy() {
+        // Очищаем данные
+        pickaxeLevel = 0;
+        axeLevel = 0;
+        shearsLevel = 0;
+        pickaxeSlot = -1;
+        axeSlot = -1;
+        shearsSlot = -1;
     }
 }
