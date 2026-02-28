@@ -169,12 +169,13 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
     }
 
     /**
-     * Найти существующий меч в инвентаре
+     * Найти существующий меч в инвентаре (кроме деревянного)
      */
     private ItemStack findExistingSword(Player player) {
         for (ItemStack item : player.getInventory().getContents()) {
             if (item == null) continue;
             String name = item.getType().name();
+            // Ищем любой меч, кроме деревянного (начального)
             if (name.contains("SWORD") && !name.contains("WOODEN")) {
                 return item;
             }
@@ -601,9 +602,12 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                     }
                     
                     if (toolType != null) {
+                        Logger.info("Attempting to upgrade tool: " + toolType + " for player " + player.getName());
                         boolean success = ToolUpgradeManager.getInstance().upgradeTool(player, toolType, type);
                         if (!success) {
                             shouldSellStack = false;
+                        } else {
+                            Logger.info("Tool upgraded successfully!");
                         }
                     }
                 }
