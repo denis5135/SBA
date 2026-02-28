@@ -18,6 +18,7 @@ import io.github.pronze.sba.wrapper.SBAPlayerWrapper;
 import lombok.SneakyThrows;
 
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -55,7 +56,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 @Service
 @ServiceDependencies(dependsOn = {
@@ -120,17 +120,9 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
         ItemStack originalItem = event.getStack().as(ItemStack.class);
         String itemName = event.getStack().getMaterial().platformName();
         
-        // Оригинальная логика SBA
-        String upgradedTo = PlayerItemTracker.getInstance().getNextUpgrade(player, itemName);
-        
-        if (upgradedTo != null) {
-            event.setStack(org.screamingsandals.lib.item.builder.ItemStackFactory.getAir());
-            return;
-        }
-        
         event.setStack(ShopUtil.applyTeamUpgradeEnchantsToItem(event.getStack(), event, StoreType.UPGRADES));
         
-        // Просто логируем инструменты, но не скрываем их
+        // Просто логируем инструменты
         if (SBAConfig.getInstance().isToolUpgradeEnabled() && originalItem != null) {
             try {
                 ToolType toolType = ToolUpgradeManager.getInstance().getToolType(originalItem);
@@ -152,6 +144,36 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
 
     @Override
     public boolean isUpgradeShop() { return false; }
+
+    /**
+     * Определить уровень меча по материалу
+     */
+    private int getSwordLevel(ItemStack sword) {
+        if (sword == null) return -1;
+        Material type = sword.getType();
+        String name = type.name();
+        
+        if (name.contains("WOODEN_SWORD")) return 0;
+        if (name.contains("STONE_SWORD")) return 1;
+        if (name.contains("IRON_SWORD")) return 2;
+        if (name.contains("DIAMOND_SWORD")) return 3;
+        
+        return -1;
+    }
+
+    /**
+     * Найти существующий меч в инвентаре
+     */
+    private ItemStack findExistingSword(Player player) {
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item == null) continue;
+            String name = item.getType().name();
+            if (name.contains("SWORD") && !name.contains("WOODEN")) {
+                return item;
+            }
+        }
+        return null;
+    }
 
     @Override
     public Map.Entry<Boolean, Boolean> handlePurchase(Player player, AtomicReference<ItemStack> newItem,
@@ -175,25 +197,6 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 }
             }
         }
-        
-        boolean isUpgradeable = false;
-        String nextItemId = null;
-        
-        for (var property : itemInfo.getProperties()) {
-            if (property.hasName()) {
-                String propName = property.getPropertyName().toLowerCase();
-                if (propName.equals("upgradeable")) isUpgradeable = true;
-                if (propName.equals("next")) nextItemId = property.getPropertyData().getString();
-            }
-        }
-        
-        if (isUpgradeable && nextItemId != null) {
-            String alreadyUpgraded = PlayerItemTracker.getInstance().getNextUpgrade(player, materialName);
-            if (alreadyUpgraded != null && !alreadyUpgraded.equals(nextItemId)) {
-                LanguageService.getInstance().get("shop.already_upgraded").send(Players.wrapPlayer(player));
-                return Map.entry(false, false);
-            }
-        }
 
         final var game = Main.getInstance().getGameOfPlayer(player);
         final var gameStorage = ArenaManager.getInstance().get(game.getName()).orElseThrow().getStorage();
@@ -209,25 +212,37 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
             String afterUnderscoreLower = afterUnderscore.toLowerCase();
             
             if (afterUnderscoreLower.equals("sword")) {
-                if (SBAConfig.getInstance().node("replace-sword-on-upgrade").getBoolean(true)) {
-                    Arrays.stream(player.getInventory().getContents().clone())
-                            .filter(Objects::nonNull)
-                            .filter(itemStack -> itemStack.getType().name().endsWith("SWORD"))
-                            .filter(itemStack -> !itemStack.isSimilar(newItem.get()))
-                            .forEach(sword -> player.getInventory().removeItem(sword));
+                // Логика для мечей
+                ItemStack currentSword = findExistingSword(player);
+                int newSwordLevel = getSwordLevel(newItem.get());
+                
+                if (currentSword != null) {
+                    int currentSwordLevel = getSwordLevel(currentSword);
+                    
+                    if (newSwordLevel <= currentSwordLevel) {
+                        // Меч хуже или такой же - не даём купить
+                        LanguageService.getInstance().get("shop.sword_not_better")
+                            .replace("%current%", currentSword.getType().name().replace("_", " ").toLowerCase())
+                            .send(Players.wrapPlayer(player));
+                        return Map.entry(false, false);
+                    } else {
+                        // Меч лучше - убираем старый
+                        player.getInventory().removeItem(currentSword);
+                    }
                 }
+                
             } else if (afterUnderscoreLower.equals("boots") || 
                        afterUnderscoreLower.equals("chestplate") || 
                        afterUnderscoreLower.equals("helmet") || 
                        afterUnderscoreLower.equals("leggings")) {
                 return Map.entry(ShopUtil.buyArmor(player, newItem.get().getType(), gameStorage, game), false);
+                
             } else if (afterUnderscoreLower.equals("pickaxe") || 
                        afterUnderscoreLower.equals("axe") || 
                        afterUnderscoreLower.equals("shears")) {
                 
-                // Проверяем, включены ли улучшения инструментов
+                // Запоминаем слот для инструмента
                 if (SBAConfig.getInstance().isToolUpgradeEnabled()) {
-                    // Запоминаем слот для инструмента
                     ToolType toolType = null;
                     if (afterUnderscoreLower.equals("pickaxe")) {
                         toolType = ToolType.PICKAXE;
@@ -244,7 +259,6 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                             switch (toolType) {
                                 case PICKAXE:
                                     levels.setPickaxeSlot(slot);
-                                    // Устанавливаем начальный уровень (0 для деревянной)
                                     levels.setPickaxeLevel(0);
                                     break;
                                 case AXE:
@@ -261,14 +275,6 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 }
             }
 
-            if (shouldSellStack) {
-                if (SBAConfig.getInstance().isItemLimitsEnabled()) {
-                    PlayerItemTracker.getInstance().trackItem(player, materialName, 1);
-                }
-                if (isUpgradeable && nextItemId != null) {
-                    PlayerItemTracker.getInstance().setNextUpgrade(player, materialName, nextItemId);
-                }
-            }
             return Map.entry(true, true);
         }
         
@@ -586,9 +592,8 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                        propertyName.equals("axe") || 
                        propertyName.equals("shears")) {
                 
-                // Проверяем, включены ли улучшения инструментов
+                // Обработка улучшения инструментов
                 if (SBAConfig.getInstance().isToolUpgradeEnabled()) {
-                    // Обработка улучшения инструментов
                     ToolType toolType = null;
                     if (propertyName.equals("pickaxe")) {
                         toolType = ToolType.PICKAXE;
@@ -599,15 +604,11 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                     }
                     
                     if (toolType != null) {
-                        // Пытаемся улучшить
                         boolean success = ToolUpgradeManager.getInstance().upgradeTool(player, toolType, type);
                         if (!success) {
                             shouldSellStack = false;
                         }
                     }
-                } else {
-                    // Если улучшения выключены - просто продаём предмет
-                    return Map.entry(true, true);
                 }
             } else {
                 // Проверяем, является ли свойство энчантом
@@ -765,10 +766,7 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
     public void onBedWarsOpenShop(BedwarsOpenShopEvent event) {
         final var shopFile = event.getStore().getShopFile();
         
-        // Проверяем, является ли это магазином улучшений
         if (shopFile != null && shopFile.toLowerCase().contains("upgrade")) {
-            // Это магазин улучшений - просто открываем его через этот же класс
-            // Не меняем Result, чтобы другие слушатели не перехватили
             if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
                 LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
                 return;
@@ -778,11 +776,9 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 return;
             }
             
-            // Открываем магазин улучшений через этот же экземпляр
             openForPlayer(Players.wrapPlayer(event.getPlayer()).as(SBAPlayerWrapper.class),
                     (GameStore) event.getStore());
         } else {
-            // Это обычный магазин
             event.setResult(BedwarsOpenShopEvent.Result.DISALLOW_UNKNOWN);
             if (!Main.getInstance().isPlayerPlayingAnyGame(event.getPlayer())) {
                 LanguageService.getInstance().get(MessageKeys.MESSAGE_NOT_IN_GAME).send(Players.wrapPlayer(event.getPlayer()));
