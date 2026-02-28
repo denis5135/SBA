@@ -46,13 +46,13 @@ public class ToolUpgradeManager {
     private boolean upgradeAxe = true;
     private boolean upgradeShears = true;
     
-    // Цены (можно будет загружать из конфига позже)
+    // Цены
     @Getter
-    private final List<Integer> pickaxePrices = Arrays.asList(10, 20, 30); // wood->stone, stone->iron, iron->diamond
+    private final List<Integer> pickaxePrices = Arrays.asList(10, 20, 30);
     @Getter
     private final List<Integer> axePrices = Arrays.asList(10, 20, 30);
     @Getter
-    private final List<Integer> shearsPrices = Arrays.asList(20); // normal->efficiency
+    private final List<Integer> shearsPrices = Arrays.asList(20);
     
     @OnPostEnable
     public void init() {
@@ -66,16 +66,8 @@ public class ToolUpgradeManager {
     }
     
     private void loadConfig() {
-        // Загружаем настройки из конфига SBA
         var config = SBAConfig.getInstance();
-        
-        // Проверяем, включены ли улучшения для инструментов
-        // В SBA конфиге это обычно в upgrade-item секции
-        upgradePickaxe = true; // По умолчанию включено
-        upgradeAxe = true;
         upgradeShears = config.node("upgrade-item", "shears").getBoolean(true);
-        
-        // Можно добавить загрузку цен из конфига позже
     }
     
     /**
@@ -83,11 +75,16 @@ public class ToolUpgradeManager {
      */
     public int getToolLevel(Player player, ToolType type) {
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
-        return switch (type) {
-            case PICKAXE -> levels.getPickaxeLevel();
-            case AXE -> levels.getAxeLevel();
-            case SHEARS -> levels.getShearsLevel();
-        };
+        switch (type) {
+            case PICKAXE:
+                return levels.getPickaxeLevel();
+            case AXE:
+                return levels.getAxeLevel();
+            case SHEARS:
+                return levels.getShearsLevel();
+            default:
+                return 0;
+        }
     }
     
     /**
@@ -185,11 +182,20 @@ public class ToolUpgradeManager {
      */
     public boolean upgradeTool(Player player, ToolType type, ItemSpawnerType currencyType) {
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
-        int currentLevel = switch (type) {
-            case PICKAXE -> levels.getPickaxeLevel();
-            case AXE -> levels.getAxeLevel();
-            case SHEARS -> levels.getShearsLevel();
-        };
+        int currentLevel;
+        switch (type) {
+            case PICKAXE:
+                currentLevel = levels.getPickaxeLevel();
+                break;
+            case AXE:
+                currentLevel = levels.getAxeLevel();
+                break;
+            case SHEARS:
+                currentLevel = levels.getShearsLevel();
+                break;
+            default:
+                return false;
+        }
         
         int maxLevel = (type == ToolType.SHEARS) ? 1 : 3;
         if (currentLevel >= maxLevel) {
@@ -230,9 +236,15 @@ public class ToolUpgradeManager {
         // Увеличиваем уровень
         int newLevel = currentLevel + 1;
         switch (type) {
-            case PICKAXE -> levels.setPickaxeLevel(newLevel);
-            case AXE -> levels.setAxeLevel(newLevel);
-            case SHEARS -> levels.setShearsLevel(newLevel);
+            case PICKAXE:
+                levels.setPickaxeLevel(newLevel);
+                break;
+            case AXE:
+                levels.setAxeLevel(newLevel);
+                break;
+            case SHEARS:
+                levels.setShearsLevel(newLevel);
+                break;
         }
         
         // Обновляем предмет в инвентаре
@@ -251,11 +263,16 @@ public class ToolUpgradeManager {
      * Получить цену для улучшения
      */
     private int getPrice(ToolType type, int currentLevel) {
-        return switch (type) {
-            case PICKAXE -> currentLevel < pickaxePrices.size() ? pickaxePrices.get(currentLevel) : -1;
-            case AXE -> currentLevel < axePrices.size() ? axePrices.get(currentLevel) : -1;
-            case SHEARS -> currentLevel < shearsPrices.size() ? shearsPrices.get(currentLevel) : -1;
-        };
+        switch (type) {
+            case PICKAXE:
+                return currentLevel < pickaxePrices.size() ? pickaxePrices.get(currentLevel) : -1;
+            case AXE:
+                return currentLevel < axePrices.size() ? axePrices.get(currentLevel) : -1;
+            case SHEARS:
+                return currentLevel < shearsPrices.size() ? shearsPrices.get(currentLevel) : -1;
+            default:
+                return -1;
+        }
     }
     
     /**
@@ -263,11 +280,19 @@ public class ToolUpgradeManager {
      */
     private void updateToolInInventory(Player player, ToolType type, int newLevel, ToolLevels levels) {
         PlayerInventory inv = player.getInventory();
-        int slot = switch (type) {
-            case PICKAXE -> levels.getPickaxeSlot();
-            case AXE -> levels.getAxeSlot();
-            case SHEARS -> levels.getShearsSlot();
-        };
+        int slot = -1;
+        
+        switch (type) {
+            case PICKAXE:
+                slot = levels.getPickaxeSlot();
+                break;
+            case AXE:
+                slot = levels.getAxeSlot();
+                break;
+            case SHEARS:
+                slot = levels.getShearsSlot();
+                break;
+        }
         
         // Если слот не запомнен, ищем инструмент
         if (slot == -1) {
@@ -276,9 +301,15 @@ public class ToolUpgradeManager {
                 if (item != null && getToolType(item) == type) {
                     slot = i;
                     switch (type) {
-                        case PICKAXE -> levels.setPickaxeSlot(i);
-                        case AXE -> levels.setAxeSlot(i);
-                        case SHEARS -> levels.setShearsSlot(i);
+                        case PICKAXE:
+                            levels.setPickaxeSlot(i);
+                            break;
+                        case AXE:
+                            levels.setAxeSlot(i);
+                            break;
+                        case SHEARS:
+                            levels.setShearsSlot(i);
+                            break;
                     }
                     break;
                 }
@@ -298,18 +329,33 @@ public class ToolUpgradeManager {
      */
     public void downgradeTool(Player player, ToolType type) {
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
-        int currentLevel = switch (type) {
-            case PICKAXE -> levels.getPickaxeLevel();
-            case AXE -> levels.getAxeLevel();
-            case SHEARS -> levels.getShearsLevel();
-        };
+        int currentLevel;
+        switch (type) {
+            case PICKAXE:
+                currentLevel = levels.getPickaxeLevel();
+                break;
+            case AXE:
+                currentLevel = levels.getAxeLevel();
+                break;
+            case SHEARS:
+                currentLevel = levels.getShearsLevel();
+                break;
+            default:
+                return;
+        }
         
         if (currentLevel > 0) {
             int newLevel = currentLevel - 1;
             switch (type) {
-                case PICKAXE -> levels.setPickaxeLevel(newLevel);
-                case AXE -> levels.setAxeLevel(newLevel);
-                case SHEARS -> levels.setShearsLevel(newLevel);
+                case PICKAXE:
+                    levels.setPickaxeLevel(newLevel);
+                    break;
+                case AXE:
+                    levels.setAxeLevel(newLevel);
+                    break;
+                case SHEARS:
+                    levels.setShearsLevel(newLevel);
+                    break;
             }
             updateToolInInventory(player, type, newLevel, levels);
         }
