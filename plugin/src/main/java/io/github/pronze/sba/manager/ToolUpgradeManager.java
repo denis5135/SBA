@@ -173,7 +173,22 @@ public class ToolUpgradeManager {
             return item.containsEnchantment(Enchantment.DIG_SPEED) ? 1 : 0;
         }
         
-        return getMaterialLevel(item.getType());
+        Material material = item.getType();
+        String name = material.name();
+        
+        // Кирки
+        if (name.equals("WOODEN_PICKAXE")) return 0;
+        if (name.equals("STONE_PICKAXE")) return 1;
+        if (name.equals("IRON_PICKAXE")) return 2;
+        if (name.equals("DIAMOND_PICKAXE")) return 3;
+        
+        // Топоры
+        if (name.equals("WOODEN_AXE")) return 0;
+        if (name.equals("STONE_AXE")) return 1;
+        if (name.equals("IRON_AXE")) return 2;
+        if (name.equals("DIAMOND_AXE")) return 3;
+        
+        return -1;
     }
     
     /**
@@ -184,39 +199,6 @@ public class ToolUpgradeManager {
         ToolType type = getToolType(item);
         if (type == null) return -1;
         return getToolLevel(player, type);
-    }
-    
-    /**
-     * Проверить, должен ли предмет быть виден в магазине
-     */
-    public boolean shouldShowInShop(Player player, ItemStack item) {
-        if (player == null || item == null) return false;
-        
-        ToolType type = getToolType(item);
-        if (type == null) return true; // Не инструмент - показываем всегда
-        
-        int itemLevel = getCurrentLevel(item);
-        int playerLevel = getToolLevel(player, type);
-        
-        // Для ножниц особый случай (только 2 уровня)
-        if (type == ToolType.SHEARS) {
-            if (playerLevel == 0) {
-                // Игрок не имеет ножниц - показываем обычные
-                return itemLevel == 0;
-            } else {
-                // Игрок имеет обычные ножницы - показываем обычные и улучшенные
-                return itemLevel == 0 || itemLevel == 1;
-            }
-        }
-        
-        // Для кирки и топора (4 уровня)
-        if (playerLevel == 0) {
-            // Игрок не имеет инструмента - показываем только деревянный
-            return itemLevel == 0;
-        } else {
-            // Игрок имеет инструмент - показываем текущий и следующий уровень
-            return itemLevel == playerLevel || itemLevel == playerLevel + 1;
-        }
     }
     
     /**
