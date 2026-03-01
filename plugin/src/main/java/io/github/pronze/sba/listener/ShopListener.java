@@ -60,7 +60,7 @@ public class ShopListener implements Listener {
                     public void run() {
                         scheduleInventoryFilter(player, "item click");
                     }
-                }.runTaskLater(SBA.getPluginInstance(), 10L); // Увеличил задержку
+                }.runTaskLater(SBA.getPluginInstance(), 10L);
             }
         }
     }
@@ -93,8 +93,9 @@ public class ShopListener implements Listener {
             ItemStack item = openInv.getItem(i);
             if (item == null || item.getType() == Material.AIR) continue;
             
+            // Пропускаем навигационные предметы и иконку категории
             if (isNavigationItem(item)) continue;
-            if (item.getType() == Material.GOLDEN_PICKAXE) continue; // Иконка категории
+            if (item.getType() == Material.GOLDEN_PICKAXE) continue;
             
             ToolType toolType = ToolUpgradeManager.getInstance().getToolType(item);
             if (toolType != null) {
