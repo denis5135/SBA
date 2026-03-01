@@ -611,9 +611,8 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                     }
                     
                     if (toolType != null) {
-                        // Получаем цену из amount материала
-                        int price = materialItem.get().getAmount();
-                        boolean success = ToolUpgradeManager.getInstance().upgradeTool(player, toolType, type, price);
+                        // ПОКА ВРЕМЕННО: используем старый метод без цены
+                        boolean success = ToolUpgradeManager.getInstance().upgradeTool(player, toolType, type);
                         if (!success) {
                             shouldSellStack = false;
                         }
