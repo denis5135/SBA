@@ -269,6 +269,31 @@ public class ToolUpgradeManager {
     }
     
     /**
+     * Получить римское число
+     */
+    private String getRomanNumber(int level) {
+        switch (level) {
+            case 1: return "I";
+            case 2: return "II";
+            case 3: return "III";
+            case 4: return "IV";
+            default: return String.valueOf(level);
+        }
+    }
+    
+    /**
+     * Получить отображаемое название инструмента
+     */
+    private String getToolDisplayName(ToolType type) {
+        switch (type) {
+            case PICKAXE: return "Кирка";
+            case AXE: return "Топор";
+            case SHEARS: return "Ножницы";
+            default: return type.name().toLowerCase();
+        }
+    }
+    
+    /**
      * Проверить, достигнут ли максимальный уровень
      */
     public boolean isMaxLevel(ToolType type, int level) {
@@ -378,7 +403,6 @@ public class ToolUpgradeManager {
     
     /**
      * Попытка купить/улучшить инструмент
-     * Покупаем ТЕКУЩИЙ уровень, повышаем уровень после покупки
      */
     public boolean upgradeTool(Player player, ToolType type, ItemSpawnerType currencyType) {
         Logger.info("=== UPGRADE TOOL CALLED ===");
@@ -401,19 +425,35 @@ public class ToolUpgradeManager {
             return false;
         }
         
-        // Получаем цену ТЕКУЩЕГО уровня (того, который покупаем)
-        int price = getPriceForLevel(type, currentLevel);
-        Logger.info("Current level price: " + price);
+        // Определяем цену в зависимости от текущего уровня
+        int price;
+        String expectedCurrency;
+        int levelToGive;
+        int nextLevel;
+        
+        if (currentLevel == 0) {
+            // Первая покупка - базовый инструмент (цена из конфига для уровня 0)
+            price = getPriceForLevel(type, 0);
+            expectedCurrency = getCurrencyForLevel(type, 0);
+            levelToGive = 0; // выдаём деревянный/обычные ножницы
+            nextLevel = 1;   // после покупки уровень станет 1
+            Logger.info("Первая покупка: цена " + price + " " + expectedCurrency);
+        } else {
+            // Улучшение - покупаем следующий уровень (цена для текущего уровня)
+            price = getPriceForLevel(type, currentLevel);
+            expectedCurrency = getCurrencyForLevel(type, currentLevel);
+            levelToGive = currentLevel; // выдаём текущий уровень (после повышения это будет новый уровень)
+            nextLevel = currentLevel + 1;
+            Logger.info("Улучшение до уровня " + (currentLevel + 1) + ": цена " + price + " " + expectedCurrency);
+        }
         
         if (price <= 0) {
             Logger.info("Invalid price");
             return false;
         }
         
-        // Проверяем, правильная ли валюта
-        String expectedCurrency = getCurrencyForLevel(type, currentLevel);
+        // Проверяем валюту
         String actualCurrency = currencyType.getName().toLowerCase();
-
         Logger.info("Currency check - Expected: " + expectedCurrency + ", Actual: " + actualCurrency);
 
         // Сопоставляем русские названия с английскими
@@ -478,45 +518,29 @@ public class ToolUpgradeManager {
         player.getInventory().removeItem(stack);
         Logger.info("Removed " + price + " " + currencyType.getName());
         
-        // Выдаём предмет ТЕКУЩЕГО уровня
-        giveToolItem(player, type, currentLevel);
+        // Выдаём предмет (базовый или улучшенный)
+        giveToolItem(player, type, levelToGive);
         
         // Сообщение о покупке
         String toolName = getToolDisplayName(type);
-        LanguageService.getInstance().get("tool_upgraded")
-            .replace("%tool%", toolName)
-            .replace("%level%", String.valueOf(currentLevel + 1))
-            .send(Players.wrapPlayer(player));
+        if (currentLevel == 0) {
+            LanguageService.getInstance().get("tool_upgraded")
+                .replace("%tool%", toolName)
+                .replace("%level%", "I")
+                .send(Players.wrapPlayer(player));
+        } else {
+            LanguageService.getInstance().get("tool_upgraded")
+                .replace("%tool%", toolName)
+                .replace("%level%", getRomanNumber(currentLevel + 1))
+                .send(Players.wrapPlayer(player));
+        }
         
         // Повышаем уровень для следующей покупки
-        int nextLevel = currentLevel + 1;
-        switch (type) {
-            case PICKAXE:
-                levels.setPickaxeLevel(nextLevel);
-                break;
-            case AXE:
-                levels.setAxeLevel(nextLevel);
-                break;
-            case SHEARS:
-                levels.setShearsLevel(nextLevel);
-                break;
-        }
-        Logger.info("Next level set to: " + nextLevel);
+        setToolLevel(player, type, nextLevel);
+        Logger.info("New level set to: " + nextLevel);
         
         Logger.info("=== UPGRADE TOOL SUCCESS ===");
         return true;
-    }
-    
-    /**
-     * Получить отображаемое название инструмента
-     */
-    private String getToolDisplayName(ToolType type) {
-        switch (type) {
-            case PICKAXE: return "Кирка";
-            case AXE: return "Топор";
-            case SHEARS: return "Ножницы";
-            default: return type.name().toLowerCase();
-        }
     }
     
     /**
