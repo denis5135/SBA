@@ -58,27 +58,34 @@ public class ShopListener implements Listener {
             ItemStack clicked = event.getCurrentItem();
             
             if (!isNavigationItem(clicked)) {
-                // Обновляем сразу после клика и ещё несколько раз для надёжности
+                // Обновляем сразу после клика и несколько раз для надёжности
                 new BukkitRunnable() {
                     @Override
                     public void run() {
                         scheduleInventoryFilter(player, "item click 1");
-                        
-                        new BukkitRunnable() {
-                            @Override
-                            public void run() {
-                                scheduleInventoryFilter(player, "item click 2");
-                                
-                                new BukkitRunnable() {
-                                    @Override
-                                    public void run() {
-                                        scheduleInventoryFilter(player, "item click 3");
-                                    }
-                                }.runTaskLater(SBA.getPluginInstance(), 10L);
-                            }
-                        }.runTaskLater(SBA.getPluginInstance(), 10L);
                     }
                 }.runTaskLater(SBA.getPluginInstance(), 5L);
+                
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        scheduleInventoryFilter(player, "item click 2");
+                    }
+                }.runTaskLater(SBA.getPluginInstance(), 10L);
+                
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        scheduleInventoryFilter(player, "item click 3");
+                    }
+                }.runTaskLater(SBA.getPluginInstance(), 20L);
+                
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        scheduleInventoryFilter(player, "item click 4");
+                    }
+                }.runTaskLater(SBA.getPluginInstance(), 40L);
             }
         }
     }
