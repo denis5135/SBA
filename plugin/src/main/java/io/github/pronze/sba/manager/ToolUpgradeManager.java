@@ -378,6 +378,7 @@ public class ToolUpgradeManager {
     
     /**
      * Попытка купить/улучшить инструмент
+     * Покупаем ТЕКУЩИЙ уровень, повышаем уровень после покупки
      */
     public boolean upgradeTool(Player player, ToolType type, ItemSpawnerType currencyType) {
         Logger.info("=== UPGRADE TOOL CALLED ===");
@@ -388,21 +389,7 @@ public class ToolUpgradeManager {
         if (player == null) return false;
         
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
-        int currentLevel;
-        switch (type) {
-            case PICKAXE:
-                currentLevel = levels.getPickaxeLevel();
-                break;
-            case AXE:
-                currentLevel = levels.getAxeLevel();
-                break;
-            case SHEARS:
-                currentLevel = levels.getShearsLevel();
-                break;
-            default:
-                Logger.info("Invalid tool type");
-                return false;
-        }
+        int currentLevel = getToolLevel(player, type);
         Logger.info("Current level: " + currentLevel);
         
         // Проверяем, не максимальный ли уже уровень
@@ -431,9 +418,9 @@ public class ToolUpgradeManager {
 
         // Сопоставляем русские названия с английскими
         boolean currencyMatches = false;
-        if (expectedCurrency.equals("iron") && (actualCurrency.contains("железо") || actualCurrency.contains("iron") || actualCurrency.contains("желез"))) {
+        if (expectedCurrency.equals("iron") && (actualCurrency.contains("желез") || actualCurrency.contains("iron"))) {
             currencyMatches = true;
-        } else if (expectedCurrency.equals("gold") && (actualCurrency.contains("золото") || actualCurrency.contains("gold") || actualCurrency.contains("золот"))) {
+        } else if (expectedCurrency.equals("gold") && (actualCurrency.contains("золот") || actualCurrency.contains("gold"))) {
             currencyMatches = true;
         } else if (expectedCurrency.equals("diamond") && (actualCurrency.contains("алмаз") || actualCurrency.contains("diamond"))) {
             currencyMatches = true;
@@ -491,34 +478,45 @@ public class ToolUpgradeManager {
         player.getInventory().removeItem(stack);
         Logger.info("Removed " + price + " " + currencyType.getName());
         
-        // Выдаём предмет текущего уровня
+        // Выдаём предмет ТЕКУЩЕГО уровня
         giveToolItem(player, type, currentLevel);
         
         // Сообщение о покупке
+        String toolName = getToolDisplayName(type);
         LanguageService.getInstance().get("tool_upgraded")
-            .replace("%tool%", type.name().toLowerCase())
+            .replace("%tool%", toolName)
             .replace("%level%", String.valueOf(currentLevel + 1))
             .send(Players.wrapPlayer(player));
         
-        // Если это не максимальный уровень, повышаем уровень для следующей покупки
-        if (!isMaxLevel(type, currentLevel)) {
-            int nextLevel = currentLevel + 1;
-            switch (type) {
-                case PICKAXE:
-                    levels.setPickaxeLevel(nextLevel);
-                    break;
-                case AXE:
-                    levels.setAxeLevel(nextLevel);
-                    break;
-                case SHEARS:
-                    levels.setShearsLevel(nextLevel);
-                    break;
-            }
-            Logger.info("Next level set to: " + nextLevel);
+        // Повышаем уровень для следующей покупки
+        int nextLevel = currentLevel + 1;
+        switch (type) {
+            case PICKAXE:
+                levels.setPickaxeLevel(nextLevel);
+                break;
+            case AXE:
+                levels.setAxeLevel(nextLevel);
+                break;
+            case SHEARS:
+                levels.setShearsLevel(nextLevel);
+                break;
         }
+        Logger.info("Next level set to: " + nextLevel);
         
         Logger.info("=== UPGRADE TOOL SUCCESS ===");
         return true;
+    }
+    
+    /**
+     * Получить отображаемое название инструмента
+     */
+    private String getToolDisplayName(ToolType type) {
+        switch (type) {
+            case PICKAXE: return "Кирка";
+            case AXE: return "Топор";
+            case SHEARS: return "Ножницы";
+            default: return type.name().toLowerCase();
+        }
     }
     
     /**
@@ -528,34 +526,11 @@ public class ToolUpgradeManager {
         if (player == null) return;
         
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
-        int currentLevel;
-        switch (type) {
-            case PICKAXE:
-                currentLevel = levels.getPickaxeLevel();
-                break;
-            case AXE:
-                currentLevel = levels.getAxeLevel();
-                break;
-            case SHEARS:
-                currentLevel = levels.getShearsLevel();
-                break;
-            default:
-                return;
-        }
+        int currentLevel = getToolLevel(player, type);
         
         if (currentLevel > 0) {
             int newLevel = currentLevel - 1;
-            switch (type) {
-                case PICKAXE:
-                    levels.setPickaxeLevel(newLevel);
-                    break;
-                case AXE:
-                    levels.setAxeLevel(newLevel);
-                    break;
-                case SHEARS:
-                    levels.setShearsLevel(newLevel);
-                    break;
-            }
+            setToolLevel(player, type, newLevel);
             updateToolInInventory(player, type, newLevel, levels);
             Logger.info("Downgraded " + type + " for " + player.getName() + " to level " + newLevel);
         }
@@ -567,21 +542,14 @@ public class ToolUpgradeManager {
     public void downgradeAllTools(Player player) {
         if (player == null) return;
         
-        var levels = ToolLevels.getOrCreate(player.getUniqueId());
-        
-        if (levels.getPickaxeLevel() > 0 && upgradePickaxe) {
-            levels.setPickaxeLevel(levels.getPickaxeLevel() - 1);
-            updateToolInInventory(player, ToolType.PICKAXE, levels.getPickaxeLevel(), levels);
+        if (upgradePickaxe) {
+            downgradeTool(player, ToolType.PICKAXE);
         }
-        
-        if (levels.getAxeLevel() > 0 && upgradeAxe) {
-            levels.setAxeLevel(levels.getAxeLevel() - 1);
-            updateToolInInventory(player, ToolType.AXE, levels.getAxeLevel(), levels);
+        if (upgradeAxe) {
+            downgradeTool(player, ToolType.AXE);
         }
-        
-        if (levels.getShearsLevel() > 0 && upgradeShears) {
-            levels.setShearsLevel(levels.getShearsLevel() - 1);
-            updateToolInInventory(player, ToolType.SHEARS, levels.getShearsLevel(), levels);
+        if (upgradeShears) {
+            downgradeTool(player, ToolType.SHEARS);
         }
     }
     
