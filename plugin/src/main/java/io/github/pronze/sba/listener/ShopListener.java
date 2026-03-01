@@ -19,6 +19,9 @@ import org.screamingsandals.bedwars.api.events.BedwarsOpenShopEvent;
 import org.screamingsandals.lib.utils.annotations.Service;
 import org.screamingsandals.lib.utils.annotations.methods.OnPostEnable;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 public class ShopListener implements Listener {
     
@@ -55,10 +58,19 @@ public class ShopListener implements Listener {
             ItemStack clicked = event.getCurrentItem();
             
             if (!isNavigationItem(clicked)) {
+                // Даём время на обработку покупки
                 new BukkitRunnable() {
                     @Override
                     public void run() {
                         scheduleInventoryFilter(player, "item click");
+                        
+                        // Дополнительное обновление через секунду для надёжности
+                        new BukkitRunnable() {
+                            @Override
+                            public void run() {
+                                scheduleInventoryFilter(player, "delayed update");
+                            }
+                        }.runTaskLater(SBA.getPluginInstance(), 20L);
                     }
                 }.runTaskLater(SBA.getPluginInstance(), 10L);
             }
@@ -93,38 +105,63 @@ public class ShopListener implements Listener {
             ItemStack item = openInv.getItem(i);
             if (item == null || item.getType() == Material.AIR) continue;
             
-            // Пропускаем навигационные предметы и иконку категории
+            // Пропускаем только навигационные предметы
             if (isNavigationItem(item)) continue;
-            if (item.getType() == Material.GOLDEN_PICKAXE) continue;
             
             ToolType toolType = ToolUpgradeManager.getInstance().getToolType(item);
             if (toolType != null) {
                 int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
+                int nextLevel = playerLevel + 1;
                 
-                // Создаём предмет нужного уровня
+                // Создаём предмет следующего уровня
                 ItemStack newItem = ToolUpgradeManager.getInstance().createToolItem(toolType, playerLevel);
                 
                 if (newItem != null) {
-                    // Копируем цену и название из оригинального предмета
                     ItemMeta meta = newItem.getItemMeta();
-                    if (item.hasItemMeta()) {
-                        if (item.getItemMeta().hasDisplayName()) {
-                            String displayName = item.getItemMeta().getDisplayName();
-                            // Убираем старый уровень из названия
-                            displayName = displayName.replaceAll(" [IVX]+$", "");
-                            meta.setDisplayName(displayName + " " + getRomanNumber(playerLevel + 1));
-                        }
-                        if (item.getItemMeta().hasLore()) {
-                            meta.setLore(item.getItemMeta().getLore());
-                        }
+                    
+                    // Обновляем название с уровнем
+                    String displayName = "§f" + getToolDisplayName(toolType) + " §a§l" + getRomanNumber(nextLevel);
+                    meta.setDisplayName(displayName);
+                    
+                    // Обновляем цену в lore
+                    int price = ToolUpgradeManager.getInstance().getPriceForLevel(toolType, playerLevel);
+                    String currency = ToolUpgradeManager.getInstance().getCurrencyForLevel(toolType, playerLevel);
+                    
+                    List<String> lore = new ArrayList<>();
+                    lore.add("§7Цена: §e" + price + " " + getCurrencyDisplay(currency));
+                    if (!ToolUpgradeManager.getInstance().isMaxLevel(toolType, playerLevel)) {
+                        lore.add("§7Следующий уровень: §a" + getRomanNumber(nextLevel + 1));
+                    } else {
+                        lore.add("§c§lМАКСИМАЛЬНЫЙ УРОВЕНЬ");
                     }
+                    meta.setLore(lore);
+                    
                     newItem.setItemMeta(meta);
                     
                     // Заменяем предмет в магазине
                     openInv.setItem(i, newItem);
-                    Logger.info("  Заменён на " + newItem.getType().name() + " (уровень " + (playerLevel + 1) + ")");
+                    Logger.info("  Заменён на " + newItem.getType().name() + " (уровень " + nextLevel + ") с ценой " + price + " " + currency);
                 }
             }
+        }
+    }
+    
+    private String getToolDisplayName(ToolType type) {
+        switch (type) {
+            case PICKAXE: return "Кирка";
+            case AXE: return "Топор";
+            case SHEARS: return "Ножницы";
+            default: return "Инструмент";
+        }
+    }
+    
+    private String getCurrencyDisplay(String currency) {
+        switch (currency) {
+            case "iron": return "железа";
+            case "gold": return "золота";
+            case "diamond": return "алмазов";
+            case "emerald": return "изумрудов";
+            default: return currency;
         }
     }
     
