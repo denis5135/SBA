@@ -416,8 +416,19 @@ public class ToolUpgradeManager {
 
         Logger.info("Currency check - Expected: " + expectedCurrency + ", Actual: " + actualCurrency);
 
-        // Проверяем, содержится ли ожидаемая валюта в названии (iron в iron_ingot, gold в gold_ingot)
-        if (!actualCurrency.contains(expectedCurrency)) {
+        // Сопоставляем русские названия с английскими
+        boolean currencyMatches = false;
+        if (expectedCurrency.equals("iron") && (actualCurrency.contains("железо") || actualCurrency.contains("iron"))) {
+            currencyMatches = true;
+        } else if (expectedCurrency.equals("gold") && (actualCurrency.contains("золото") || actualCurrency.contains("gold"))) {
+            currencyMatches = true;
+        } else if (expectedCurrency.equals("diamond") && (actualCurrency.contains("алмаз") || actualCurrency.contains("diamond"))) {
+            currencyMatches = true;
+        } else if (expectedCurrency.equals("emerald") && (actualCurrency.contains("изумруд") || actualCurrency.contains("emerald"))) {
+            currencyMatches = true;
+        }
+
+        if (!currencyMatches) {
             Logger.info("Currency mismatch! Expected: " + expectedCurrency + ", got: " + actualCurrency);
             LanguageService.getInstance().get("not_enough_money")
                 .replace("%resource%", expectedCurrency)
