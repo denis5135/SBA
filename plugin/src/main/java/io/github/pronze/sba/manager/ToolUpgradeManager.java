@@ -429,7 +429,7 @@ public class ToolUpgradeManager {
         giveToolItem(player, type, currentLevel);
         
         // Сообщение о покупке
-        LanguageService.getInstance().get("shop.tool_upgraded")
+        LanguageService.getInstance().get("tool_upgraded")
             .replace("%tool%", type.name().toLowerCase())
             .replace("%level%", String.valueOf(currentLevel + 1))
             .send(Players.wrapPlayer(player));
