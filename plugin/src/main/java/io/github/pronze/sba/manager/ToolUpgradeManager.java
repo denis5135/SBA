@@ -256,6 +256,19 @@ public class ToolUpgradeManager {
     }
     
     /**
+     * Получить отображаемое название валюты
+     */
+    private String getCurrencyDisplay(String currency) {
+        switch (currency) {
+            case "iron": return "железа";
+            case "gold": return "золота";
+            case "diamond": return "алмазов";
+            case "emerald": return "изумрудов";
+            default: return currency;
+        }
+    }
+    
+    /**
      * Проверить, достигнут ли максимальный уровень
      */
     public boolean isMaxLevel(ToolType type, int level) {
@@ -431,7 +444,7 @@ public class ToolUpgradeManager {
         if (!currencyMatches) {
             Logger.info("Currency mismatch! Expected: " + expectedCurrency + ", got: " + actualCurrency);
             LanguageService.getInstance().get("not_enough_money")
-                .replace("%resource%", expectedCurrency)
+                .replace("%resource%", getCurrencyDisplay(expectedCurrency))
                 .replace("%price%", String.valueOf(price))
                 .send(Players.wrapPlayer(player));
             return false;
@@ -458,7 +471,7 @@ public class ToolUpgradeManager {
         if (!player.getInventory().containsAtLeast(stack, price)) {
             Logger.info("Not enough money");
             LanguageService.getInstance().get("not_enough_money")
-                .replace("%resource%", currencyType.getName())
+                .replace("%resource%", getCurrencyDisplay(expectedCurrency))
                 .replace("%price%", String.valueOf(price))
                 .send(Players.wrapPlayer(player));
             return false;
