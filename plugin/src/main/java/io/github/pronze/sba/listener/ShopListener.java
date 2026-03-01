@@ -59,24 +59,19 @@ public class ShopListener implements Listener {
             
             if (!isNavigationItem(clicked)) {
                 // Обновляем после клика несколько раз для надёжности
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        scheduleInventoryFilter(player, "item click 1");
-                    }
-                }.runTaskLater(SBA.getPluginInstance(), 5L);
+                scheduleInventoryFilter(player, "post click");
                 
                 new BukkitRunnable() {
                     @Override
                     public void run() {
-                        scheduleInventoryFilter(player, "item click 2");
+                        scheduleInventoryFilter(player, "delayed 1");
                     }
                 }.runTaskLater(SBA.getPluginInstance(), 10L);
                 
                 new BukkitRunnable() {
                     @Override
                     public void run() {
-                        scheduleInventoryFilter(player, "item click 3");
+                        scheduleInventoryFilter(player, "delayed 2");
                     }
                 }.runTaskLater(SBA.getPluginInstance(), 20L);
             }
@@ -113,22 +108,22 @@ public class ShopListener implements Listener {
             ItemStack item = openInv.getItem(i);
             if (item == null || item.getType() == Material.AIR) continue;
             
-            // Пропускаем навигационные предметы
+            // Пропускаем только навигационные предметы
             if (isNavigationItem(item)) continue;
             
             ToolType toolType = ToolUpgradeManager.getInstance().getToolType(item);
             if (toolType != null) {
                 int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
-                int nextLevel = playerLevel + 1;
+                int displayLevel = playerLevel + 1; // Для отображения (1-4)
                 
-                // Создаём предмет СЛЕДУЮЩЕГО уровня (который будет доступен для покупки)
+                // Создаём предмет для отображения (текущий уровень игрока)
                 ItemStack newItem = ToolUpgradeManager.getInstance().createToolItem(toolType, playerLevel);
                 
                 if (newItem != null) {
                     ItemMeta meta = newItem.getItemMeta();
                     
                     // Обновляем название с уровнем
-                    String displayName = "§f" + getToolDisplayName(toolType) + " §a§l" + getRomanNumber(nextLevel);
+                    String displayName = "§f" + getToolDisplayName(toolType) + " §a§l" + getRomanNumber(displayLevel);
                     meta.setDisplayName(displayName);
                     
                     // Обновляем цену в lore
@@ -137,18 +132,19 @@ public class ShopListener implements Listener {
                     
                     List<String> lore = new ArrayList<>();
                     lore.add("§7Цена: §e" + price + " " + getCurrencyDisplay(currency));
-                    if (!ToolUpgradeManager.getInstance().isMaxLevel(toolType, playerLevel)) {
-                        lore.add("§7Следующий уровень: §a" + getRomanNumber(nextLevel + 1));
-                    } else {
-                        lore.add("§c§lМАКСИМАЛЬНЫЙ УРОВЕНЬ");
-                    }
-                    meta.setLore(lore);
                     
+                    if (ToolUpgradeManager.getInstance().isMaxLevel(toolType, playerLevel)) {
+                        lore.add("§c§lМАКСИМАЛЬНЫЙ УРОВЕНЬ");
+                    } else {
+                        lore.add("§7Следующий уровень: §a" + getRomanNumber(displayLevel + 1));
+                    }
+                    
+                    meta.setLore(lore);
                     newItem.setItemMeta(meta);
                     
                     // Заменяем предмет в магазине
                     openInv.setItem(i, newItem);
-                    Logger.info("  Заменён на " + newItem.getType().name() + " (уровень " + nextLevel + ") с ценой " + price + " " + currency);
+                    Logger.info("  Заменён на " + newItem.getType().name() + " (уровень " + displayLevel + ") с ценой " + price + " " + currency);
                     updated = true;
                 }
             }
