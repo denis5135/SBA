@@ -412,8 +412,13 @@ public class ToolUpgradeManager {
         
         // Проверяем, правильная ли валюта
         String expectedCurrency = getCurrencyForLevel(type, currentLevel);
-        if (!currencyType.getName().equalsIgnoreCase(expectedCurrency)) {
-            Logger.info("Currency mismatch! Expected: " + expectedCurrency + ", got: " + currencyType.getName());
+        String actualCurrency = currencyType.getName().toLowerCase();
+
+        Logger.info("Currency check - Expected: " + expectedCurrency + ", Actual: " + actualCurrency);
+
+        // Проверяем, содержится ли ожидаемая валюта в названии (iron в iron_ingot, gold в gold_ingot)
+        if (!actualCurrency.contains(expectedCurrency)) {
+            Logger.info("Currency mismatch! Expected: " + expectedCurrency + ", got: " + actualCurrency);
             LanguageService.getInstance().get("not_enough_money")
                 .replace("%resource%", expectedCurrency)
                 .replace("%price%", String.valueOf(price))
@@ -429,6 +434,15 @@ public class ToolUpgradeManager {
         }
         
         var stack = currencyType.getStack(price);
+        
+        // Отладка количества ресурсов
+        int hasAmount = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.getType() == stack.getType()) {
+                hasAmount += item.getAmount();
+            }
+        }
+        Logger.info("Has " + hasAmount + " " + currencyType.getName() + ", needs " + price);
         
         if (!player.getInventory().containsAtLeast(stack, price)) {
             Logger.info("Not enough money");
