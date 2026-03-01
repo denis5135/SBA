@@ -326,6 +326,7 @@ public class ToolUpgradeManager {
             ItemStack item = inv.getItem(i);
             if (item != null && getToolType(item) == type) {
                 targetSlot = i;
+                Logger.info("Found existing " + type + " at slot " + i);
                 break;
             }
         }
@@ -333,6 +334,7 @@ public class ToolUpgradeManager {
         // Если не нашли, ищем первый пустой слот
         if (targetSlot == -1) {
             targetSlot = inv.firstEmpty();
+            Logger.info("No existing tool found, using first empty slot: " + targetSlot);
         }
         
         if (targetSlot != -1) {
@@ -405,20 +407,24 @@ public class ToolUpgradeManager {
      * Попытка купить/улучшить инструмент
      */
     public boolean upgradeTool(Player player, ToolType type, ItemSpawnerType currencyType) {
-        Logger.info("=== UPGRADE TOOL CALLED ===");
+        Logger.info("========== UPGRADE TOOL CALLED ==========");
         Logger.info("Player: " + player.getName());
         Logger.info("Tool type: " + type);
-        Logger.info("Currency: " + currencyType.getName());
+        Logger.info("Currency from parameter: " + currencyType.getName());
+        Logger.info("Currency class: " + currencyType.getClass().getName());
         
-        if (player == null) return false;
+        if (player == null) {
+            Logger.info("Player is null!");
+            return false;
+        }
         
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
         int currentLevel = getToolLevel(player, type);
-        Logger.info("Current level: " + currentLevel);
+        Logger.info("Current level in data: " + currentLevel);
         
         // Проверяем, не максимальный ли уже уровень
         if (isMaxLevel(type, currentLevel)) {
-            Logger.info("Max level reached");
+            Logger.info("Max level reached - cannot upgrade further");
             LanguageService.getInstance().get("max_tool_level")
                 .replace("%tool%", type.name().toLowerCase())
                 .send(Players.wrapPlayer(player));
@@ -432,44 +438,64 @@ public class ToolUpgradeManager {
         int nextLevel;
         
         if (currentLevel == 0) {
-            // Первая покупка - базовый инструмент (цена из конфига для уровня 0)
+            // Первая покупка - базовый инструмент
             price = getPriceForLevel(type, 0);
             expectedCurrency = getCurrencyForLevel(type, 0);
-            levelToGive = 0; // выдаём деревянный/обычные ножницы
-            nextLevel = 1;   // после покупки уровень станет 1
-            Logger.info("Первая покупка: цена " + price + " " + expectedCurrency);
+            levelToGive = 0;
+            nextLevel = 1;
+            Logger.info("FIRST PURCHASE - Buying level 0 tool");
+            Logger.info("Price: " + price + " " + expectedCurrency);
         } else {
-            // Улучшение - покупаем следующий уровень (цена для текущего уровня)
+            // Улучшение - покупаем следующий уровень
             price = getPriceForLevel(type, currentLevel);
             expectedCurrency = getCurrencyForLevel(type, currentLevel);
-            levelToGive = currentLevel; // выдаём текущий уровень (после повышения это будет новый уровень)
+            levelToGive = currentLevel;
             nextLevel = currentLevel + 1;
-            Logger.info("Улучшение до уровня " + (currentLevel + 1) + ": цена " + price + " " + expectedCurrency);
+            Logger.info("UPGRADE - Buying level " + currentLevel + " tool (will become level " + nextLevel + " after purchase)");
+            Logger.info("Price: " + price + " " + expectedCurrency);
         }
         
         if (price <= 0) {
-            Logger.info("Invalid price");
+            Logger.info("Invalid price: " + price);
             return false;
         }
         
+        // Получаем название валюты разными способами
+        String currencyName = currencyType.getName();
+        String currencyItemName = currencyType.getItemName();
+        String currencyLowerCase = currencyName.toLowerCase();
+        
+        Logger.info("Currency name: '" + currencyName + "'");
+        Logger.info("Currency item name: '" + currencyItemName + "'");
+        Logger.info("Currency lower case: '" + currencyLowerCase + "'");
+        
         // Проверяем валюту
-        String actualCurrency = currencyType.getName().toLowerCase();
-        Logger.info("Currency check - Expected: " + expectedCurrency + ", Actual: " + actualCurrency);
-
-        // Сопоставляем русские названия с английскими
         boolean currencyMatches = false;
-        if (expectedCurrency.equals("iron") && (actualCurrency.contains("желез") || actualCurrency.contains("iron"))) {
-            currencyMatches = true;
-        } else if (expectedCurrency.equals("gold") && (actualCurrency.contains("золот") || actualCurrency.contains("gold"))) {
-            currencyMatches = true;
-        } else if (expectedCurrency.equals("diamond") && (actualCurrency.contains("алмаз") || actualCurrency.contains("diamond"))) {
-            currencyMatches = true;
-        } else if (expectedCurrency.equals("emerald") && (actualCurrency.contains("изумруд") || actualCurrency.contains("emerald"))) {
-            currencyMatches = true;
+        
+        if (expectedCurrency.equals("iron")) {
+            if (currencyLowerCase.contains("iron") || currencyLowerCase.contains("желез")) {
+                currencyMatches = true;
+                Logger.info("Currency matches IRON");
+            }
+        } else if (expectedCurrency.equals("gold")) {
+            if (currencyLowerCase.contains("gold") || currencyLowerCase.contains("золот")) {
+                currencyMatches = true;
+                Logger.info("Currency matches GOLD");
+            }
+        } else if (expectedCurrency.equals("diamond")) {
+            if (currencyLowerCase.contains("diamond") || currencyLowerCase.contains("алмаз")) {
+                currencyMatches = true;
+                Logger.info("Currency matches DIAMOND");
+            }
+        } else if (expectedCurrency.equals("emerald")) {
+            if (currencyLowerCase.contains("emerald") || currencyLowerCase.contains("изумруд")) {
+                currencyMatches = true;
+                Logger.info("Currency matches EMERALD");
+            }
         }
 
         if (!currencyMatches) {
-            Logger.info("Currency mismatch! Expected: " + expectedCurrency + ", got: " + actualCurrency);
+            Logger.info("CURRENCY MISMATCH! Expected: " + expectedCurrency + ", got: '" + currencyLowerCase + "'");
             LanguageService.getInstance().get("not_enough_money")
                 .replace("%resource%", getCurrencyDisplay(expectedCurrency))
                 .replace("%price%", String.valueOf(price))
@@ -480,23 +506,26 @@ public class ToolUpgradeManager {
         // Проверяем ресурсы
         var game = Main.getInstance().getGameOfPlayer(player);
         if (game == null) {
-            Logger.info("Game is null");
+            Logger.info("Game is null!");
             return false;
         }
         
         var stack = currencyType.getStack(price);
+        Logger.info("Stack type: " + stack.getType().name());
+        Logger.info("Stack amount: " + stack.getAmount());
         
-        // Отладка количества ресурсов
+        // Считаем ресурсы в инвентаре
         int hasAmount = 0;
         for (ItemStack item : player.getInventory().getContents()) {
             if (item != null && item.getType() == stack.getType()) {
                 hasAmount += item.getAmount();
+                Logger.info("Found " + item.getType().name() + " x" + item.getAmount());
             }
         }
-        Logger.info("Has " + hasAmount + " " + currencyType.getName() + ", needs " + price);
+        Logger.info("Player has " + hasAmount + " " + currencyType.getName() + ", needs " + price);
         
         if (!player.getInventory().containsAtLeast(stack, price)) {
-            Logger.info("Not enough money");
+            Logger.info("NOT ENOUGH MONEY!");
             LanguageService.getInstance().get("not_enough_money")
                 .replace("%resource%", getCurrencyDisplay(expectedCurrency))
                 .replace("%price%", String.valueOf(price))
@@ -510,36 +539,38 @@ public class ToolUpgradeManager {
         event.setPrice(String.valueOf(price));
         
         if (event.isCancelled()) {
-            Logger.info("Event cancelled");
+            Logger.info("Event was cancelled!");
             return false;
         }
         
         // Снимаем ресурсы
         player.getInventory().removeItem(stack);
-        Logger.info("Removed " + price + " " + currencyType.getName());
+        Logger.info("Removed " + price + " " + currencyType.getName() + " from inventory");
         
-        // Выдаём предмет (базовый или улучшенный)
+        // Выдаём предмет
         giveToolItem(player, type, levelToGive);
+        Logger.info("Gave item of level " + levelToGive);
         
         // Сообщение о покупке
         String toolName = getToolDisplayName(type);
+        String levelText;
         if (currentLevel == 0) {
-            LanguageService.getInstance().get("tool_upgraded")
-                .replace("%tool%", toolName)
-                .replace("%level%", "I")
-                .send(Players.wrapPlayer(player));
+            levelText = "I";
         } else {
-            LanguageService.getInstance().get("tool_upgraded")
-                .replace("%tool%", toolName)
-                .replace("%level%", getRomanNumber(currentLevel + 1))
-                .send(Players.wrapPlayer(player));
+            levelText = getRomanNumber(currentLevel + 1);
         }
+        Logger.info("Sending success message for level " + levelText);
         
-        // Повышаем уровень для следующей покупки
+        LanguageService.getInstance().get("tool_upgraded")
+            .replace("%tool%", toolName)
+            .replace("%level%", levelText)
+            .send(Players.wrapPlayer(player));
+        
+        // Повышаем уровень
         setToolLevel(player, type, nextLevel);
         Logger.info("New level set to: " + nextLevel);
         
-        Logger.info("=== UPGRADE TOOL SUCCESS ===");
+        Logger.info("========== UPGRADE TOOL SUCCESS ==========");
         return true;
     }
     
@@ -551,12 +582,15 @@ public class ToolUpgradeManager {
         
         var levels = ToolLevels.getOrCreate(player.getUniqueId());
         int currentLevel = getToolLevel(player, type);
+        Logger.info("Downgrading " + type + " for " + player.getName() + " from level " + currentLevel);
         
         if (currentLevel > 0) {
             int newLevel = currentLevel - 1;
             setToolLevel(player, type, newLevel);
             updateToolInInventory(player, type, newLevel, levels);
-            Logger.info("Downgraded " + type + " for " + player.getName() + " to level " + newLevel);
+            Logger.info("Downgraded to level " + newLevel);
+        } else {
+            Logger.info("Already at minimum level, cannot downgrade");
         }
     }
     
@@ -565,6 +599,8 @@ public class ToolUpgradeManager {
      */
     public void downgradeAllTools(Player player) {
         if (player == null) return;
+        
+        Logger.info("Downgrading all tools for " + player.getName());
         
         if (upgradePickaxe) {
             downgradeTool(player, ToolType.PICKAXE);
@@ -582,5 +618,6 @@ public class ToolUpgradeManager {
      */
     public void removePlayerData(UUID uuid) {
         ToolLevels.remove(uuid);
+        Logger.info("Removed tool data for UUID: " + uuid);
     }
 }
