@@ -431,9 +431,9 @@ public class ToolUpgradeManager {
 
         // Сопоставляем русские названия с английскими
         boolean currencyMatches = false;
-        if (expectedCurrency.equals("iron") && (actualCurrency.contains("железо") || actualCurrency.contains("iron"))) {
+        if (expectedCurrency.equals("iron") && (actualCurrency.contains("железо") || actualCurrency.contains("iron") || actualCurrency.contains("желез"))) {
             currencyMatches = true;
-        } else if (expectedCurrency.equals("gold") && (actualCurrency.contains("золото") || actualCurrency.contains("gold"))) {
+        } else if (expectedCurrency.equals("gold") && (actualCurrency.contains("золото") || actualCurrency.contains("gold") || actualCurrency.contains("золот"))) {
             currencyMatches = true;
         } else if (expectedCurrency.equals("diamond") && (actualCurrency.contains("алмаз") || actualCurrency.contains("diamond"))) {
             currencyMatches = true;
