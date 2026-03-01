@@ -58,21 +58,27 @@ public class ShopListener implements Listener {
             ItemStack clicked = event.getCurrentItem();
             
             if (!isNavigationItem(clicked)) {
-                // Даём время на обработку покупки
+                // Обновляем сразу после клика и ещё несколько раз для надёжности
                 new BukkitRunnable() {
                     @Override
                     public void run() {
-                        scheduleInventoryFilter(player, "item click");
+                        scheduleInventoryFilter(player, "item click 1");
                         
-                        // Дополнительное обновление через секунду для надёжности
                         new BukkitRunnable() {
                             @Override
                             public void run() {
-                                scheduleInventoryFilter(player, "delayed update");
+                                scheduleInventoryFilter(player, "item click 2");
+                                
+                                new BukkitRunnable() {
+                                    @Override
+                                    public void run() {
+                                        scheduleInventoryFilter(player, "item click 3");
+                                    }
+                                }.runTaskLater(SBA.getPluginInstance(), 10L);
                             }
-                        }.runTaskLater(SBA.getPluginInstance(), 20L);
+                        }.runTaskLater(SBA.getPluginInstance(), 10L);
                     }
-                }.runTaskLater(SBA.getPluginInstance(), 10L);
+                }.runTaskLater(SBA.getPluginInstance(), 5L);
             }
         }
     }
@@ -87,7 +93,7 @@ public class ShopListener implements Listener {
                     Logger.error("Error filtering shop inventory: " + e.getMessage());
                 }
             }
-        }.runTaskLater(SBA.getPluginInstance(), 10L);
+        }.runTaskLater(SBA.getPluginInstance(), 5L);
     }
     
     private void filterShopInventory(Player player, String reason) {
@@ -101,26 +107,27 @@ public class ShopListener implements Listener {
         
         Logger.info("🔧 Обновляем инструменты для: " + player.getName() + " (причина: " + reason + ")");
         
+        boolean updated = false;
+        
         for (int i = 0; i < openInv.getSize(); i++) {
             ItemStack item = openInv.getItem(i);
             if (item == null || item.getType() == Material.AIR) continue;
             
-            // Пропускаем только навигационные предметы
+            // Пропускаем навигационные предметы
             if (isNavigationItem(item)) continue;
             
             ToolType toolType = ToolUpgradeManager.getInstance().getToolType(item);
             if (toolType != null) {
                 int playerLevel = ToolUpgradeManager.getInstance().getToolLevel(player, toolType);
-                int nextLevel = playerLevel + 1;
                 
-                // Создаём предмет следующего уровня
+                // Создаём предмет текущего уровня игрока
                 ItemStack newItem = ToolUpgradeManager.getInstance().createToolItem(toolType, playerLevel);
                 
                 if (newItem != null) {
                     ItemMeta meta = newItem.getItemMeta();
                     
                     // Обновляем название с уровнем
-                    String displayName = "§f" + getToolDisplayName(toolType) + " §a§l" + getRomanNumber(nextLevel);
+                    String displayName = "§f" + getToolDisplayName(toolType) + " §a§l" + getRomanNumber(playerLevel + 1);
                     meta.setDisplayName(displayName);
                     
                     // Обновляем цену в lore
@@ -130,7 +137,7 @@ public class ShopListener implements Listener {
                     List<String> lore = new ArrayList<>();
                     lore.add("§7Цена: §e" + price + " " + getCurrencyDisplay(currency));
                     if (!ToolUpgradeManager.getInstance().isMaxLevel(toolType, playerLevel)) {
-                        lore.add("§7Следующий уровень: §a" + getRomanNumber(nextLevel + 1));
+                        lore.add("§7Следующий уровень: §a" + getRomanNumber(playerLevel + 2));
                     } else {
                         lore.add("§c§lМАКСИМАЛЬНЫЙ УРОВЕНЬ");
                     }
@@ -140,9 +147,14 @@ public class ShopListener implements Listener {
                     
                     // Заменяем предмет в магазине
                     openInv.setItem(i, newItem);
-                    Logger.info("  Заменён на " + newItem.getType().name() + " (уровень " + nextLevel + ") с ценой " + price + " " + currency);
+                    Logger.info("  Заменён на " + newItem.getType().name() + " (уровень " + (playerLevel + 1) + ") с ценой " + price + " " + currency);
+                    updated = true;
                 }
             }
+        }
+        
+        if (updated) {
+            player.updateInventory();
         }
     }
     
