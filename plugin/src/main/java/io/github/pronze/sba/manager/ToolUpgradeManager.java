@@ -378,7 +378,7 @@ public class ToolUpgradeManager {
         // Проверяем, не максимальный ли уже уровень
         if (isMaxLevel(type, currentLevel)) {
             Logger.info("Max level reached");
-            LanguageService.getInstance().get("shop.max_tool_level")
+            LanguageService.getInstance().get("max_tool_level")
                 .replace("%tool%", type.name().toLowerCase())
                 .send(Players.wrapPlayer(player));
             return false;
@@ -404,7 +404,7 @@ public class ToolUpgradeManager {
         
         if (!player.getInventory().containsAtLeast(stack, price)) {
             Logger.info("Not enough money");
-            LanguageService.getInstance().get("shop.not_enough_money")
+            LanguageService.getInstance().get("not_enough_money")
                 .replace("%resource%", currencyType.getName())
                 .replace("%price%", String.valueOf(price))
                 .send(Players.wrapPlayer(player));
