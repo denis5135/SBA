@@ -257,7 +257,7 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                 if (currentSword != null) {
                     if (newSwordLevel <= currentSwordLevel) {
                         // Меч хуже или такой же - не даём купить
-                        LanguageService.getInstance().get("shop.sword_not_better")
+                        LanguageService.getInstance().get("sword_not_better")
                             .replace("%current%", currentSword.getType().name().replace("_", " ").toLowerCase())
                             .send(Players.wrapPlayer(player));
                         return Map.entry(false, false);
