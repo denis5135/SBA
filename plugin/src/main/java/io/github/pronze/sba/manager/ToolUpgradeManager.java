@@ -52,11 +52,6 @@ public class ToolUpgradeManager {
     @Getter
     private final List<Integer> shearsPrices = Arrays.asList(16, 32);
     
-    // Валюты для каждого уровня
-    private final List<String> pickaxeCurrencies = Arrays.asList("iron", "iron", "gold", "gold");
-    private final List<String> axeCurrencies = Arrays.asList("iron", "iron", "gold", "gold");
-    private final List<String> shearsCurrencies = Arrays.asList("iron", "iron");
-    
     private boolean initialized = false;
     
     public static ToolUpgradeManager getInstance() {
@@ -243,6 +238,11 @@ public class ToolUpgradeManager {
      * Получить валюту для указанного уровня
      */
     public String getCurrencyForLevel(ToolType type, int level) {
+        // Валюты для каждого уровня
+        List<String> pickaxeCurrencies = Arrays.asList("iron", "iron", "gold", "gold");
+        List<String> axeCurrencies = Arrays.asList("iron", "iron", "gold", "gold");
+        List<String> shearsCurrencies = Arrays.asList("iron", "iron");
+        
         switch (type) {
             case PICKAXE:
                 return level < pickaxeCurrencies.size() ? pickaxeCurrencies.get(level) : "iron";
@@ -364,14 +364,13 @@ public class ToolUpgradeManager {
     }
     
     /**
-     * Повысить уровень инструмента (ресурсы уже сняты в handlePurchase)
+     * Попытка купить/улучшить инструмент
      */
-    public boolean upgradeTool(Player player, ToolType type, ItemSpawnerType currencyType, int price) {
+    public boolean upgradeTool(Player player, ToolType type, ItemSpawnerType currencyType) {
         Logger.info("=== UPGRADE TOOL CALLED ===");
         Logger.info("Player: " + player.getName());
         Logger.info("Tool type: " + type);
         Logger.info("Currency: " + currencyType.getName());
-        Logger.info("Price paid: " + price);
         
         if (player == null) return false;
         
@@ -402,10 +401,12 @@ public class ToolUpgradeManager {
             return false;
         }
         
-        // Проверяем, правильная ли цена
-        int expectedPrice = getPriceForLevel(type, currentLevel);
-        if (price != expectedPrice) {
-            Logger.info("Price mismatch! Expected: " + expectedPrice + ", got: " + price);
+        // Получаем цену ТЕКУЩЕГО уровня (того, который покупаем)
+        int price = getPriceForLevel(type, currentLevel);
+        Logger.info("Current level price: " + price);
+        
+        if (price <= 0) {
+            Logger.info("Invalid price");
             return false;
         }
         
@@ -415,14 +416,31 @@ public class ToolUpgradeManager {
             Logger.info("Currency mismatch! Expected: " + expectedCurrency + ", got: " + currencyType.getName());
             LanguageService.getInstance().get("not_enough_money")
                 .replace("%resource%", expectedCurrency)
-                .replace("%price%", String.valueOf(expectedPrice))
+                .replace("%price%", String.valueOf(price))
+                .send(Players.wrapPlayer(player));
+            return false;
+        }
+        
+        // Проверяем ресурсы
+        var game = Main.getInstance().getGameOfPlayer(player);
+        if (game == null) {
+            Logger.info("Game is null");
+            return false;
+        }
+        
+        var stack = currencyType.getStack(price);
+        
+        if (!player.getInventory().containsAtLeast(stack, price)) {
+            Logger.info("Not enough money");
+            LanguageService.getInstance().get("not_enough_money")
+                .replace("%resource%", currencyType.getName())
+                .replace("%price%", String.valueOf(price))
                 .send(Players.wrapPlayer(player));
             return false;
         }
         
         // Вызываем событие
-        var game = Main.getInstance().getGameOfPlayer(player);
-        var event = new PlayerToolUpgradeEvent(player, currencyType.getStack(price), type.name(), 
+        var event = new PlayerToolUpgradeEvent(player, stack, type.name(), 
                 game.getTeamOfPlayer(player), game, currencyType);
         event.setPrice(String.valueOf(price));
         
@@ -430,6 +448,10 @@ public class ToolUpgradeManager {
             Logger.info("Event cancelled");
             return false;
         }
+        
+        // Снимаем ресурсы
+        player.getInventory().removeItem(stack);
+        Logger.info("Removed " + price + " " + currencyType.getName());
         
         // Выдаём предмет текущего уровня
         giveToolItem(player, type, currentLevel);
@@ -440,20 +462,22 @@ public class ToolUpgradeManager {
             .replace("%level%", String.valueOf(currentLevel + 1))
             .send(Players.wrapPlayer(player));
         
-        // Повышаем уровень для следующей покупки
-        int nextLevel = currentLevel + 1;
-        switch (type) {
-            case PICKAXE:
-                levels.setPickaxeLevel(nextLevel);
-                break;
-            case AXE:
-                levels.setAxeLevel(nextLevel);
-                break;
-            case SHEARS:
-                levels.setShearsLevel(nextLevel);
-                break;
+        // Если это не максимальный уровень, повышаем уровень для следующей покупки
+        if (!isMaxLevel(type, currentLevel)) {
+            int nextLevel = currentLevel + 1;
+            switch (type) {
+                case PICKAXE:
+                    levels.setPickaxeLevel(nextLevel);
+                    break;
+                case AXE:
+                    levels.setAxeLevel(nextLevel);
+                    break;
+                case SHEARS:
+                    levels.setShearsLevel(nextLevel);
+                    break;
+            }
+            Logger.info("Next level set to: " + nextLevel);
         }
-        Logger.info("Next level set to: " + nextLevel);
         
         Logger.info("=== UPGRADE TOOL SUCCESS ===");
         return true;
