@@ -60,7 +60,7 @@ public class ShopListener implements Listener {
                     public void run() {
                         scheduleInventoryFilter(player, "item click");
                     }
-                }.runTaskLater(SBA.getPluginInstance(), 5L);
+                }.runTaskLater(SBA.getPluginInstance(), 10L); // Увеличил задержку
             }
         }
     }
@@ -75,7 +75,7 @@ public class ShopListener implements Listener {
                     Logger.error("Error filtering shop inventory: " + e.getMessage());
                 }
             }
-        }.runTaskLater(SBA.getPluginInstance(), 5L);
+        }.runTaskLater(SBA.getPluginInstance(), 10L);
     }
     
     private void filterShopInventory(Player player, String reason) {
@@ -87,7 +87,7 @@ public class ShopListener implements Listener {
         boolean isToolsCategory = title.contains("Tools") || title.contains("Инструменты");
         if (!isToolsCategory) return;
         
-        Logger.info("🔧 Обновляем инструменты для: " + player.getName());
+        Logger.info("🔧 Обновляем инструменты для: " + player.getName() + " (причина: " + reason + ")");
         
         for (int i = 0; i < openInv.getSize(); i++) {
             ItemStack item = openInv.getItem(i);
