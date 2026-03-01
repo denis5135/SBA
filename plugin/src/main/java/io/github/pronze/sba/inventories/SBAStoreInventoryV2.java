@@ -599,7 +599,7 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                        propertyName.equals("axe") || 
                        propertyName.equals("shears")) {
                 
-                // Обработка улучшения инструментов как в upgradeShop
+                // Обработка улучшения инструментов
                 if (SBAConfig.getInstance().isToolUpgradeEnabled()) {
                     ToolType toolType = null;
                     if (propertyName.equals("pickaxe")) {
@@ -611,7 +611,6 @@ public class SBAStoreInventoryV2 extends AbstractStoreInventory {
                     }
                     
                     if (toolType != null) {
-                        // ПОКА ВРЕМЕННО: используем старый метод без цены
                         boolean success = ToolUpgradeManager.getInstance().upgradeTool(player, toolType, type);
                         if (!success) {
                             shouldSellStack = false;
